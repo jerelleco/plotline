@@ -1,0 +1,697 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project_name }} - Theme Explorer{% endblock %}
+
+{% block extra_styles %}
+.theme-explorer {
+display: grid;
+grid-template-columns: 280px 1fr;
+gap: 1.5rem;
+min-height: calc(100vh - 200px);
+}
+
+.sidebar {
+position: sticky;
+top: 1rem;
+align-self: start;
+max-height: calc(100vh - 100px);
+overflow-y: auto;
+}
+
+.sidebar-title {
+font-size: 0.75rem;
+text-transform: uppercase;
+letter-spacing: 0.05em;
+color: var(--color-text-muted);
+margin-bottom: 0.75rem;
+}
+
+.theme-nav-item {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+padding: 0.625rem 0.75rem;
+border-radius: var(--radius-md);
+cursor: pointer;
+transition: all var(--transition-fast);
+margin-bottom: 0.25rem;
+border: 1px solid transparent;
+}
+
+.theme-nav-item:hover {
+background: var(--color-bg-secondary);
+}
+
+.theme-nav-item.active {
+background: var(--color-bg-secondary);
+border-color: var(--color-border-light);
+}
+
+.theme-color-dot {
+width: 10px;
+height: 10px;
+border-radius: 50%;
+flex-shrink: 0;
+}
+
+.theme-nav-info {
+flex: 1;
+min-width: 0;
+}
+
+.theme-nav-name {
+font-size: 0.8125rem;
+font-weight: 500;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.theme-nav-count {
+font-size: 0.6875rem;
+color: var(--color-text-muted);
+}
+
+.theme-strength {
+width: 40px;
+height: 3px;
+background: var(--color-bg-tertiary);
+border-radius: 2px;
+overflow: hidden;
+flex-shrink: 0;
+}
+
+.theme-strength-fill {
+height: 100%;
+border-radius: 2px;
+}
+
+.controls-bar {
+display: flex;
+gap: 0.75rem;
+align-items: center;
+flex-wrap: wrap;
+margin-bottom: 1.5rem;
+padding: 0.75rem 1rem;
+background: var(--color-bg-secondary);
+border-radius: var(--radius-lg);
+}
+
+.control-group {
+display: flex;
+align-items: center;
+gap: 0.375rem;
+}
+
+.control-label {
+font-size: 0.75rem;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.03em;
+}
+
+.control-select {
+background: var(--color-bg-tertiary);
+border: 1px solid var(--color-border);
+border-radius: var(--radius-md);
+padding: 0.375rem 0.625rem;
+color: var(--color-text-primary);
+font-size: 0.8125rem;
+}
+
+.search-input {
+background: var(--color-bg-tertiary);
+border: 1px solid var(--color-border);
+border-radius: var(--radius-md);
+padding: 0.375rem 0.75rem;
+color: var(--color-text-primary);
+font-size: 0.8125rem;
+flex: 1;
+min-width: 180px;
+}
+
+.search-input::placeholder {
+color: var(--color-text-muted);
+}
+
+.search-input:focus {
+outline: none;
+border-color: var(--color-accent-primary);
+}
+
+.theme-group {
+margin-bottom: 2rem;
+}
+
+.theme-group-header {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+margin-bottom: 0.75rem;
+padding-bottom: 0.5rem;
+border-bottom: 1px solid var(--color-border);
+}
+
+.theme-group-dot {
+width: 12px;
+height: 12px;
+border-radius: 50%;
+flex-shrink: 0;
+}
+
+.theme-group-name {
+font-size: 1rem;
+font-weight: 600;
+flex: 1;
+}
+
+.theme-group-badge {
+font-size: 0.6875rem;
+padding: 0.125rem 0.5rem;
+background: var(--color-bg-tertiary);
+border-radius: var(--radius-full);
+color: var(--color-text-secondary);
+}
+
+.theme-group-desc {
+font-size: 0.8125rem;
+color: var(--color-text-secondary);
+margin-bottom: 1rem;
+line-height: 1.5;
+}
+
+.theme-group-emotion {
+font-size: 0.75rem;
+color: var(--color-text-muted);
+font-style: italic;
+margin-bottom: 1rem;
+}
+
+.segment-card {
+background: var(--color-bg-card);
+border: 1px solid var(--color-border);
+border-radius: var(--radius-md);
+padding: 1rem;
+margin-bottom: 0.5rem;
+transition: all 0.15s ease;
+cursor: pointer;
+}
+
+.segment-card:hover {
+border-color: var(--color-border-light);
+}
+
+.segment-card.active {
+border-color: var(--color-accent-primary);
+box-shadow: 0 0 0 1px var(--color-accent-primary);
+}
+
+.segment-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 0.5rem;
+}
+
+.segment-meta {
+display: flex;
+align-items: center;
+gap: 0.5rem;
+font-size: 0.75rem;
+}
+
+.segment-interview {
+color: var(--color-accent-tertiary);
+font-weight: 500;
+}
+
+.segment-timecode {
+font-family: var(--font-mono);
+color: var(--color-text-muted);
+font-size: 0.6875rem;
+}
+
+.segment-score {
+font-family: var(--font-mono);
+font-size: 0.8125rem;
+font-weight: 600;
+}
+
+.segment-score.filled { color: var(--color-success); }
+.segment-score.medium { color: var(--color-warning); }
+.segment-score.low { color: var(--color-error); }
+
+.segment-text {
+font-size: 0.875rem;
+line-height: 1.6;
+color: var(--color-text-primary);
+margin-bottom: 0.5rem;
+}
+
+.segment-footer {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 0.5rem;
+}
+
+.segment-themes {
+display: flex;
+flex-wrap: wrap;
+gap: 0.25rem;
+}
+
+.theme-pill {
+font-size: 0.625rem;
+padding: 0.125rem 0.5rem;
+border-radius: var(--radius-full);
+color: white;
+cursor: pointer;
+transition: all 0.15s;
+}
+
+.theme-pill:hover {
+filter: brightness(1.2);
+transform: scale(1.05);
+}
+
+.intersection-badge {
+font-size: 0.625rem;
+padding: 0.125rem 0.375rem;
+background: var(--color-accent-secondary);
+color: white;
+border-radius: var(--radius-sm);
+}
+
+.stats-bar {
+display: flex;
+gap: 2rem;
+margin-bottom: 1.5rem;
+padding: 1rem;
+background: var(--color-bg-secondary);
+border-radius: var(--radius-lg);
+}
+
+.stat-item { text-align: center; }
+
+.stat-value {
+font-size: 1.5rem;
+font-weight: 600;
+color: var(--color-text-primary);
+}
+
+.stat-label {
+font-size: 0.7rem;
+color: var(--color-text-muted);
+text-transform: uppercase;
+letter-spacing: 0.05em;
+}
+
+.audio-player {
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
+background: var(--color-bg-secondary);
+border-top: 1px solid var(--color-border);
+padding: 1rem;
+display: none;
+z-index: 1000;
+}
+
+.audio-player.visible { display: block; }
+
+.audio-player-content {
+max-width: 1400px;
+margin: 0 auto;
+display: flex;
+align-items: center;
+gap: 1rem;
+}
+
+.audio-player audio { flex: 1; height: 40px; }
+
+.audio-player-info {
+font-size: 0.875rem;
+color: var(--color-text-secondary);
+max-width: 250px;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.audio-player-close {
+padding: 0.25rem 0.5rem;
+background: var(--color-bg-tertiary);
+border: none;
+border-radius: var(--radius-sm);
+color: var(--color-text-primary);
+cursor: pointer;
+}
+
+.empty-state {
+text-align: center;
+padding: 3rem;
+color: var(--color-text-secondary);
+}
+
+.empty-state h2 {
+margin-bottom: 0.5rem;
+color: var(--color-text-primary);
+}
+
+.no-results {
+text-align: center;
+padding: 2rem;
+color: var(--color-text-muted);
+display: none;
+}
+
+@media (max-width: 768px) {
+.theme-explorer {
+grid-template-columns: 1fr;
+}
+.sidebar {
+position: relative;
+max-height: none;
+}
+.controls-bar {
+flex-direction: column;
+align-items: stretch;
+}
+}
+
+@media print {
+.sidebar { display: none; }
+.controls-bar { display: none; }
+.theme-explorer { grid-template-columns: 1fr; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="header">
+    <div>
+        <h1>Theme Explorer</h1>
+        <div class="header-meta">
+            <span class="badge badge-primary">{{ project_name }}</span>
+            <span class="text-secondary">{{ total_themes }} themes · {{ total_segments }} segments{% if
+                total_intersections > 0 %} · {{ total_intersections }} intersections{% endif %}</span>
+        </div>
+    </div>
+    <div class="header-meta no-print">
+        <button class="btn btn-secondary" onclick="window.print()">Export PDF</button>
+    </div>
+</div>
+
+<div class="stats-bar">
+    <div class="stat-item">
+        <div class="stat-value">{{ total_themes }}</div>
+        <div class="stat-label">Themes</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ total_segments }}</div>
+        <div class="stat-label">Segments</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ total_intersections }}</div>
+        <div class="stat-label">Intersections</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ interviews|length }}</div>
+        <div class="stat-label">Interviews</div>
+    </div>
+</div>
+
+{% if themes %}
+<div class="theme-explorer">
+    <aside class="sidebar no-print">
+        <div class="sidebar-title">Themes</div>
+        <div class="theme-nav-item active" data-theme="all" onclick="filterByTheme('all')">
+            <div class="theme-color-dot" style="background: var(--color-text-muted)"></div>
+            <div class="theme-nav-info">
+                <div class="theme-nav-name">All Themes</div>
+                <div class="theme-nav-count">{{ total_segments }} segments</div>
+            </div>
+        </div>
+        {% for theme in themes %}
+        <div class="theme-nav-item" data-theme="{{ theme.name }}" onclick="filterByTheme('{{ theme.name | e }}')">
+            <div class="theme-color-dot" style="background: {{ theme.color }}"></div>
+            <div class="theme-nav-info">
+                <div class="theme-nav-name" title="{{ theme.name }}">{{ theme.name }}</div>
+                <div class="theme-nav-count">{{ theme.segment_count }} segments</div>
+            </div>
+            <div class="theme-strength">
+                <div class="theme-strength-fill"
+                    style="width: {{ (theme.strength * 100)|round }}%; background: {{ theme.color }}"></div>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if total_intersections > 0 %}
+        <div style="margin-top: 1rem">
+            <div class="sidebar-title">Intersections</div>
+            <div class="theme-nav-item" data-theme="intersections" onclick="filterByTheme('intersections')">
+                <div class="theme-color-dot" style="background: var(--color-accent-secondary)"></div>
+                <div class="theme-nav-info">
+                    <div class="theme-nav-name">Multi-Theme</div>
+                    <div class="theme-nav-count">{{ total_intersections }} segments</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </aside>
+
+    <main>
+        <div class="controls-bar no-print">
+            <div class="control-group">
+                <span class="control-label">Group</span>
+                <select id="groupBy" class="control-select">
+                    <option value="theme">By Theme</option>
+                    <option value="interview">By Interview</option>
+                    <option value="none">All Segments</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Sort</span>
+                <select id="sortBy" class="control-select">
+                    <option value="score">Delivery Score</option>
+                    <option value="time">Chronological</option>
+                    <option value="themes">Theme Count</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <span class="control-label">Interview</span>
+                <select id="interviewFilter" class="control-select">
+                    <option value="all">All</option>
+                    {% for interview in interviews %}
+                    <option value="{{ interview.id }}">{{ interview.filename }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="text" id="searchInput" class="search-input" placeholder="Search segment text...">
+        </div>
+
+        <div id="segmentsContainer">
+            {% for theme in themes %}
+            <div class="theme-group" data-theme-name="{{ theme.name }}">
+                <div class="theme-group-header">
+                    <div class="theme-group-dot" style="background: {{ theme.color }}"></div>
+                    <div class="theme-group-name">{{ theme.name }}</div>
+                    <span class="theme-group-badge">{{ theme.segment_count }} segments</span>
+                </div>
+                {% if theme.description %}
+                <div class="theme-group-desc">{{ theme.description }}</div>
+                {% endif %}
+                {% if theme.emotional_character %}
+                <div class="theme-group-emotion">{{ theme.emotional_character }}</div>
+                {% endif %}
+
+                {% for seg_id in theme.segment_ids %}
+                {% set seg = data.segments | selectattr("id", "equalto", seg_id) | first %}
+                {% if seg %}
+                <div class="segment-card" data-segment-id="{{ seg.id }}" data-interview="{{ seg.interview_id }}"
+                    data-score="{{ seg.delivery_score }}" data-start="{{ seg.start }}"
+                    data-themes="{{ seg.themes | join(',') }}" data-theme-count="{{ seg.themes | length }}"
+                    data-text="{{ seg.text | lower }}">
+                    <div class="segment-header">
+                        <div class="segment-meta">
+                            <span class="segment-interview">{{ seg.interview_filename }}</span>
+                            <span class="segment-timecode">{{ seg.timecode }}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            {% if seg.themes | length >= 2 %}
+                            <span class="intersection-badge">{{ seg.themes | length }} themes</span>
+                            {% endif %}
+                            <span class="segment-score {{ seg.delivery_class }}">{{ seg.delivery_score }}</span>
+                        </div>
+                    </div>
+                    <div class="segment-text">"{{ seg.text }}"</div>
+                    <div class="segment-footer">
+                        <div class="segment-themes">
+                            {% for theme_name in seg.themes %}
+                            <span class="theme-pill" style="background: {{ seg.theme_colors[loop.index0] }}"
+                                onclick="event.stopPropagation(); filterByTheme('{{ theme_name | e }}')">{{ theme_name
+                                }}</span>
+                            {% endfor %}
+                        </div>
+                        {% if seg.audio_path %}
+                        <button class="btn btn-secondary btn-sm"
+                            onclick="event.stopPropagation(); playAudio('{{ seg.audio_path }}', '{{ seg.interview_id }}', '{{ seg.text[:40] }}...')">
+                            ▶ Play
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="no-results" id="noResults">
+            <p>No segments match your filters.</p>
+        </div>
+    </main>
+</div>
+
+{% else %}
+<div class="empty-state">
+    <h2>No themes found</h2>
+    <p>Run <code>plotline themes</code> to extract themes from your interviews.</p>
+</div>
+{% endif %}
+
+<div id="audioPlayer" class="audio-player no-print">
+    <div class="audio-player-content">
+        <div class="audio-player-info" id="audioPlayerInfo">No audio selected</div>
+        <audio id="audioElement" controls preload="auto"></audio>
+        <button class="audio-player-close" onclick="closeAudio()">✕</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+let activeTheme = 'all';
+
+function filterByTheme(themeName) {
+activeTheme = themeName;
+
+// Update sidebar active state
+document.querySelectorAll('.theme-nav-item').forEach(item => {
+item.classList.toggle('active', item.dataset.theme === themeName);
+});
+
+applyFilters();
+}
+
+function applyFilters() {
+const groupBy = document.getElementById('groupBy').value;
+const sortBy = document.getElementById('sortBy').value;
+const interviewFilter = document.getElementById('interviewFilter').value;
+const searchText = document.getElementById('searchInput').value.toLowerCase();
+
+const groups = document.querySelectorAll('.theme-group');
+const allCards = document.querySelectorAll('.segment-card');
+let visibleCount = 0;
+
+allCards.forEach(card => {
+const themes = card.dataset.themes || '';
+const interview = card.dataset.interview || '';
+const text = card.dataset.text || '';
+const themeCount = parseInt(card.dataset.themeCount) || 0;
+
+let show = true;
+
+// Theme filter
+if (activeTheme === 'intersections') {
+show = themeCount >= 2;
+} else if (activeTheme !== 'all') {
+show = themes.split(',').includes(activeTheme);
+}
+
+// Interview filter
+if (show && interviewFilter !== 'all') {
+show = interview === interviewFilter;
+}
+
+// Search filter
+if (show && searchText) {
+show = text.includes(searchText);
+}
+
+card.style.display = show ? '' : 'none';
+if (show) visibleCount++;
+});
+
+// Show/hide theme groups based on visible cards
+groups.forEach(group => {
+const cards = group.querySelectorAll('.segment-card');
+const hasVisible = Array.from(cards).some(c => c.style.display !== 'none');
+
+if (activeTheme !== 'all' && activeTheme !== 'intersections') {
+const groupTheme = group.dataset.themeName;
+group.style.display = groupTheme === activeTheme ? '' : 'none';
+} else {
+group.style.display = hasVisible ? '' : 'none';
+}
+});
+
+// Sort visible cards within each group
+groups.forEach(group => {
+if (group.style.display === 'none') return;
+const cards = Array.from(group.querySelectorAll('.segment-card'));
+cards.sort((a, b) => {
+if (sortBy === 'score') {
+return parseFloat(b.dataset.score) - parseFloat(a.dataset.score);
+} else if (sortBy === 'time') {
+return parseFloat(a.dataset.start) - parseFloat(b.dataset.start);
+} else if (sortBy === 'themes') {
+return parseInt(b.dataset.themeCount) - parseInt(a.dataset.themeCount);
+}
+return 0;
+});
+cards.forEach(card => group.appendChild(card));
+});
+
+// No results message
+document.getElementById('noResults').style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function playAudio(path, interviewId, textPreview) {
+const audio = document.getElementById('audioElement');
+const player = document.getElementById('audioPlayer');
+const info = document.getElementById('audioPlayerInfo');
+audio.src = path;
+audio.play().catch(() => {});
+player.classList.add('visible');
+info.textContent = interviewId + ': ' + textPreview;
+}
+
+function closeAudio() {
+const audio = document.getElementById('audioElement');
+const player = document.getElementById('audioPlayer');
+audio.pause();
+audio.src = '';
+player.classList.remove('visible');
+}
+
+// Wire up controls
+document.getElementById('groupBy')?.addEventListener('change', applyFilters);
+document.getElementById('sortBy')?.addEventListener('change', applyFilters);
+document.getElementById('interviewFilter')?.addEventListener('change', applyFilters);
+document.getElementById('searchInput')?.addEventListener('input', applyFilters);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+if (e.key === 'Escape') closeAudio();
+});
+
+// Click segment to highlight
+document.querySelectorAll('.segment-card').forEach(card => {
+card.addEventListener('click', function() {
+document.querySelectorAll('.segment-card').forEach(c => c.classList.remove('active'));
+this.classList.add('active');
+});
+});
+{% endblock %}

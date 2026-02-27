@@ -780,10 +780,18 @@ def generate_report(
                 manifest=manifest,
                 open_browser=open_browser,
             )
+        elif report_type == "themes":
+            from plotline.reports.themes import generate_themes_report
+
+            output_path = generate_themes_report(
+                project_path=project_dir,
+                manifest=manifest,
+                open_browser=open_browser,
+            )
         else:
             console.print(f"[red]Unknown report type: {report_type}[/red]")
             console.print(
-                "[dim]Valid types: dashboard, review, summary, transcript, coverage[/dim]"
+                "[dim]Valid types: dashboard, review, summary, transcript, coverage, themes[/dim]"
             )
             raise typer.Exit(1)
 

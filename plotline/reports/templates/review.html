@@ -62,13 +62,8 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
 <div class="review-container">
   <div class="timeline" id="timeline">
     {% for segment in segments %}
-    <div
-      class="segment-card"
-      data-id="{{ segment.id }}"
-      data-status="{{ segment.status }}"
-      draggable="true"
-      tabindex="0"
-    >
+    <div class="segment-card" data-id="{{ segment.id }}" data-status="{{ segment.status }}" draggable="true"
+      tabindex="0">
       <div class="segment-header">
         <span class="segment-role">{{ segment.role }}</span>
         <span class="segment-timecode">{{ segment.timecode }}</span>
@@ -82,15 +77,11 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
         </div>
         <div class="delivery-badge">
           <div class="delivery-bar">
+            <div class="delivery-bar-segment {{ segment.delivery_class }}"></div>
+            <div class="delivery-bar-segment {{ segment.delivery_class }}"></div>
             <div
-              class="delivery-bar-segment {{ segment.delivery_class }}"
-            ></div>
-            <div
-              class="delivery-bar-segment {{ segment.delivery_class }}"
-            ></div>
-            <div
-              class="delivery-bar-segment {% if segment.delivery_score > 0.33 %}{{ segment.delivery_class }}{% endif %}"
-            ></div>
+              class="delivery-bar-segment {% if segment.delivery_score > 0.33 %}{{ segment.delivery_class }}{% endif %}">
+            </div>
           </div>
           <span class="text-muted ml-1">{{ segment.delivery_label }}</span>
         </div>
@@ -99,22 +90,13 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
       <div class="segment-notes">{{ segment.editorial_notes }}</div>
       {% endif %}
       <div class="segment-actions no-print">
-        <button
-          class="btn btn-success btn-sm"
-          onclick="setStatus('{{ segment.id }}', 'approved')"
-        >
+        <button class="btn btn-success btn-sm" onclick="setStatus('{{ segment.id }}', 'approved')">
           ✓ Approve (A)
         </button>
-        <button
-          class="btn btn-error btn-sm"
-          onclick="setStatus('{{ segment.id }}', 'rejected')"
-        >
+        <button class="btn btn-error btn-sm" onclick="setStatus('{{ segment.id }}', 'rejected')">
           ✗ Reject (X)
         </button>
-        <button
-          class="btn btn-secondary btn-sm"
-          onclick="setStatus('{{ segment.id }}', 'flagged')"
-        >
+        <button class="btn btn-secondary btn-sm" onclick="setStatus('{{ segment.id }}', 'flagged')">
           ⚠ Flag (F)
         </button>
       </div>
@@ -142,35 +124,20 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
         </div>
       </div>
       <div class="progress-bar mt-2">
-        <div
-          class="progress-bar-fill"
-          style="width: {{ progress_percent }}%"
-        ></div>
+        <div class="progress-bar-fill" style="width: {{ progress_percent }}%"></div>
       </div>
     </div>
 
     <div class="summary-card no-print">
       <div class="card-title mb-2">Filters</div>
       <div class="filters">
-        <button
-          class="btn btn-secondary filter-btn active"
-          data-filter="all"
-          onclick="filterSegments('all')"
-        >
+        <button class="btn btn-secondary filter-btn active" data-filter="all" onclick="filterSegments('all')">
           All
         </button>
-        <button
-          class="btn btn-secondary filter-btn"
-          data-filter="pending"
-          onclick="filterSegments('pending')"
-        >
+        <button class="btn btn-secondary filter-btn" data-filter="pending" onclick="filterSegments('pending')">
           Pending
         </button>
-        <button
-          class="btn btn-secondary filter-btn"
-          data-filter="approved"
-          onclick="filterSegments('approved')"
-        >
+        <button class="btn btn-secondary filter-btn" data-filter="approved" onclick="filterSegments('approved')">
           Approved
         </button>
       </div>
@@ -194,47 +161,170 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
     </div>
   </div>
 </div>
-{% endblock %} {% block scripts %} let currentIndex = 0; const segments =
-document.querySelectorAll('.segment-card'); const audio =
-document.getElementById('audio'); const audioPlayer =
-document.getElementById('audioPlayer'); const audioSource =
-document.getElementById('audioSource'); function focusSegment(index) {
+{% endblock %}
+{% block scripts %}
+
+let currentIndex = 0;
+const segments = document.querySelectorAll('.segment-card');
+const audio = document.getElementById('audio');
+const audioPlayer = document.getElementById('audioPlayer');
+const audioSource = document.getElementById('audioSource');
+
+// Restore any previously saved approvals from localStorage
+(function restoreApprovals() {
+try {
+const saved = localStorage.getItem('plotline_approvals_{{ project_name }}');
+if (!saved) return;
+const data = JSON.parse(saved);
+(data.segments || []).forEach(entry => {
+const card = document.querySelector(`[data-id="${entry.segment_id}"]`);
+if (!card) return;
+card.dataset.status = entry.status;
+card.classList.remove('approved', 'rejected', 'flagged');
+if (entry.status !== 'pending') card.classList.add(entry.status);
+});
+} catch(e) {}
+})();
+
+function focusSegment(index) {
 segments.forEach((s, i) => { s.classList.toggle('focused', i === index); });
-currentIndex = index; segments[index].scrollIntoView({ behavior: 'smooth',
-block: 'center' }); segments[index].focus(); const segmentData =
-reportData.segments[index]; if (segmentData && segmentData.audio_path) {
-audio.src = segmentData.audio_path; audioSource.textContent =
-segmentData.timecode + ' - ' + segmentData.text.substring(0, 50);
-audioPlayer.style.display = 'block'; } } function setStatus(id, status) { const
-card = document.querySelector(`[data-id="${id}"]`); card.dataset.status =
-status; card.classList.remove('approved', 'rejected', 'flagged'); if (status !==
-'pending') { card.classList.add(status); } saveApprovals(); updateSummary(); }
+currentIndex = index;
+segments[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+segments[index].focus();
+const segmentData = reportData.segments[index];
+if (segmentData && segmentData.audio_path) {
+audio.src = segmentData.audio_path;
+audioSource.textContent = segmentData.timecode + ' - ' + segmentData.text.substring(0, 50);
+audioPlayer.style.display = 'block';
+}
+}
+
+function setStatus(id, status) {
+const card = document.querySelector(`[data-id="${id}"]`);
+card.dataset.status = status;
+card.classList.remove('approved', 'rejected', 'flagged');
+if (status !== 'pending') { card.classList.add(status); }
+updateSummary();
+saveApprovals();
+}
+
 function filterSegments(filter) {
 document.querySelectorAll('.filter-btn').forEach(btn => {
-btn.classList.toggle('active', btn.dataset.filter === filter); });
-segments.forEach(s => { const status = s.dataset.status; const show = filter ===
-'all' || status === filter || (filter === 'pending' && status === 'pending');
-s.style.display = show ? '' : 'none'; }); } function saveApprovals() { const
-approvals = {}; segments.forEach(s => { approvals[s.dataset.id] =
-s.dataset.status; }); fetch('approvals.json', { method: 'PUT', body:
-JSON.stringify({ segments: Object.entries(approvals).map(([id, status]) => ({
-segment_id: id, status })) }) }).catch(() => {}); } function updateSummary() {
-let approved = 0, rejected = 0, flagged = 0; segments.forEach(s => { if
-(s.dataset.status === 'approved') approved++; else if (s.dataset.status ===
-'rejected') rejected++; else if (s.dataset.status === 'flagged') flagged++; });
-document.querySelector('.summary-stat.text-success').textContent = approved;
-document.querySelector('.summary-stat.text-error').textContent = rejected;
-document.querySelector('.summary-stat.text-warning').textContent = flagged; }
-function exportApproved() { window.location.href = '../plotline_selects.edl'; }
-document.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT'
-|| e.target.tagName === 'TEXTAREA') return; const focused =
-document.querySelector('.segment-card.focused'); const id = focused?.dataset.id;
-switch(e.key) { case 'ArrowDown': e.preventDefault(); if (currentIndex <
-segments.length - 1) focusSegment(currentIndex + 1); break; case 'ArrowUp':
-e.preventDefault(); if (currentIndex > 0) focusSegment(currentIndex - 1); break;
-case 'a': case 'A': if (id) setStatus(id, 'approved'); break; case 'x': case
-'X': if (id) setStatus(id, 'rejected'); break; case 'f': case 'F': if (id)
-setStatus(id, 'flagged'); break; case ' ': e.preventDefault(); if (audio.src) {
-audio.paused ? audio.play() : audio.pause(); } break; } }); segments.forEach((s,
-i) => { s.addEventListener('click', () => focusSegment(i)); }); if
-(segments.length > 0) { focusSegment(0); } {% endblock %}
+btn.classList.toggle('active', btn.dataset.filter === filter);
+});
+segments.forEach(s => {
+const status = s.dataset.status;
+const show = filter === 'all' || status === filter || (filter === 'pending' && status === 'pending');
+s.style.display = show ? '' : 'none';
+});
+}
+
+function buildApprovalsPayload() {
+const segList = [];
+segments.forEach((s, idx) => {
+segList.push({
+segment_id: s.dataset.id,
+position: idx + 1,
+status: s.dataset.status,
+user_notes: null,
+flag_acknowledged: false
+});
+});
+const approved = segList.filter(s => s.status === 'approved').length;
+const rejected = segList.filter(s => s.status === 'rejected').length;
+const pending = segList.filter(s => s.status === 'pending').length;
+return {
+reviewed_at: new Date().toISOString(),
+total: segList.length,
+approved,
+rejected,
+pending,
+segments: segList,
+reordered: false,
+custom_order: null
+};
+}
+
+function saveApprovals() {
+const payload = buildApprovalsPayload();
+try {
+localStorage.setItem('plotline_approvals_{{ project_name }}', JSON.stringify(payload));
+} catch(e) {}
+}
+
+// Bug fix: selectors must target .summary-stat-value.text-* (the inner div),
+// not .summary-stat.text-* (the outer wrapper, which never has those classes).
+function updateSummary() {
+let approved = 0, rejected = 0, flagged = 0;
+segments.forEach(s => {
+if (s.dataset.status === 'approved') approved++;
+else if (s.dataset.status === 'rejected') rejected++;
+else if (s.dataset.status === 'flagged') flagged++;
+});
+document.querySelector('.summary-stat-value.text-success').textContent = approved;
+document.querySelector('.summary-stat-value.text-error').textContent = rejected;
+document.querySelector('.summary-stat-value.text-warning').textContent = flagged;
+const total = segments.length;
+const reviewed = approved + rejected + flagged;
+const pct = total > 0 ? (reviewed / total * 100) : 0;
+const fill = document.querySelector('.progress-bar-fill');
+if (fill) fill.style.width = pct.toFixed(1) + '%';
+// Keep the header Export button count in sync
+const exportBtn = document.querySelector('.btn-primary[onclick="exportApproved()"]');
+if (exportBtn) exportBtn.textContent = 'Export Approved (' + approved + ')';
+}
+
+// Bug fix: these reports are opened as local files (file:// protocol).
+// fetch() PUT calls are blocked by the browser under file://. Instead, we:
+// 1. persist to localStorage (survives page refresh)
+// 2. on Export, download approvals.json and prompt the user to run `plotline export`
+function exportApproved() {
+const payload = buildApprovalsPayload();
+if (payload.approved === 0) {
+alert('No segments are approved yet.\n\nApprove at least one segment before exporting.');
+return;
+}
+// Persist to localStorage
+try {
+localStorage.setItem('plotline_approvals_{{ project_name }}', JSON.stringify(payload));
+} catch(e) {}
+// Trigger download of approvals.json
+const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = 'approvals.json';
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+URL.revokeObjectURL(url);
+// Guide the user to the CLI export step
+setTimeout(() => {
+alert(
+'approvals.json downloaded! (' + payload.approved + ' approved)\n\n' +
+'Move it to your project folder (replacing the existing one), then run:\n\n' +
+' plotline export --format edl\n\n' +
+'to generate your EDL file.'
+);
+}, 300);
+}
+
+document.addEventListener('keydown', (e) => {
+if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+const focused = document.querySelector('.segment-card.focused');
+const id = focused?.dataset.id;
+switch(e.key) {
+case 'ArrowDown': e.preventDefault(); if (currentIndex < segments.length - 1) focusSegment(currentIndex + 1); break;
+  case 'ArrowUp' : e.preventDefault(); if (currentIndex> 0) focusSegment(currentIndex - 1); break;
+  case 'a': case 'A': if (id) setStatus(id, 'approved'); break;
+  case 'x': case 'X': if (id) setStatus(id, 'rejected'); break;
+  case 'f': case 'F': if (id) setStatus(id, 'flagged'); break;
+  case ' ': e.preventDefault(); if (audio.src) { audio.paused ? audio.play() : audio.pause(); } break;
+  }
+  });
+
+  segments.forEach((s, i) => { s.addEventListener('click', () => focusSegment(i)); });
+  updateSummary();
+  if (segments.length > 0) { focusSegment(0); }
+
+  {% endblock %}

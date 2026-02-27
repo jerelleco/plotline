@@ -97,14 +97,18 @@ def generate_summary(
     arc_segments = []
     for seg in selected_segments[:20]:
         role = seg.get("role", "body").lower()
+        if role in ("opening", "hook"):
+            role_class = "hook"
+        elif role in ("resolution", "coda"):
+            role_class = "resolution"
+        elif role in ("climax", "turning_point"):
+            role_class = "climax"
+        else:
+            role_class = "body"
         arc_segments.append(
             {
                 "role": seg.get("role", "Body"),
-                "role_class": "hook"
-                if role == "hook"
-                else "resolution"
-                if role == "resolution"
-                else "body",
+                "role_class": role_class,
                 "text": seg.get("text", "")[:100]
                 + ("..." if len(seg.get("text", "")) > 100 else ""),
             }

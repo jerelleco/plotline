@@ -14,5 +14,12 @@ from plotline.reports.dashboard import generate_dashboard
 from plotline.reports.generator import ReportGenerator
 from plotline.reports.review import generate_review
 from plotline.reports.summary import generate_summary
+from plotline.reports.themes import generate_themes_report
 
-__all__ = ["ReportGenerator", "generate_dashboard", "generate_review", "generate_summary"]
+__all__ = [
+    "ReportGenerator",
+    "generate_dashboard",
+    "generate_review",
+    "generate_summary",
+    "generate_themes_report",
+]

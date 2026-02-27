@@ -39,9 +39,7 @@ block content %}
   </div>
   <div class="header-meta">
     <span class="badge badge-primary">{{ profile }}</span>
-    <a href="#" class="btn btn-secondary no-print" onclick="window.print()"
-      >Export PDF</a
-    >
+    <a href="#" class="btn btn-secondary no-print" onclick="window.print()">Export PDF</a>
   </div>
 </div>
 
@@ -68,10 +66,7 @@ block content %}
 
 <div class="interview-grid">
   {% for interview in interviews %}
-  <div
-    class="interview-card"
-    onclick="window.location='transcript_{{ interview.id }}.html'"
-  >
+  <div class="interview-card" onclick="window.location='transcript_{{ interview.id }}.html'">
     <div class="interview-filename">{{ interview.filename }}</div>
     <div class="interview-meta">
       <span>{{ interview.duration }}</span>
@@ -84,9 +79,7 @@ block content %}
         'in-progress' %}●{% else %}{{ stage.initial }}{% endif %}
       </div>
       {% if not loop.last %}
-      <div
-        class="stage-connector {{ 'completed' if stage.status == 'completed' else '' }}"
-      ></div>
+      <div class="stage-connector {{ 'completed' if stage.status == 'completed' else '' }}"></div>
       {% endif %} {% endfor %}
     </div>
     <div class="stage-names">
@@ -114,15 +107,67 @@ block content %}
 <div class="card mt-4 no-print">
   <div class="card-title mb-2">Quick Actions</div>
   <div class="flex gap-2">
-    <button class="btn btn-primary" onclick="alert('Run: plotline themes')">
+    <button class="btn btn-primary" id="nextStageBtn" onclick="suggestNextStage()">
       Run Next Stage
     </button>
     <button class="btn btn-secondary" onclick="window.location='review.html'">
       Open Review
     </button>
-    <button class="btn btn-secondary" onclick="alert('Run: plotline export')">
+    <button class="btn btn-secondary" onclick="alert('Run: plotline export --format edl')">
       Export Timeline
     </button>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+function suggestNextStage() {
+const stageCommands = {
+'extracted': { next: 'transcribe', cmd: 'plotline transcribe' },
+'transcribed': { next: 'analyze', cmd: 'plotline analyze' },
+'analyzed': { next: 'enrich', cmd: 'plotline enrich' },
+'enriched': { next: 'themes', cmd: 'plotline themes' },
+'themes': { next: 'review', cmd: 'plotline run' },
+'reviewed': { next: null, cmd: 'plotline export --format edl' }
+};
+const stageOrder = ['extracted', 'transcribed', 'analyzed', 'enriched', 'themes', 'reviewed'];
+
+let nextCmd = 'plotline run';
+const interviews = reportData.interviews || [];
+for (const interview of interviews) {
+const stages = interview.stages || [];
+for (const stage of stages) {
+if (stage.status === 'pending') {
+const info = stageCommands[stage.key] || {};
+nextCmd = info.cmd || 'plotline run';
+alert('Next step for ' + interview.filename + ':\n\n ' + nextCmd);
+return;
+}
+}
+}
+alert('All stages complete! Run:\n\n ' + nextCmd);
+}
+
+// Set initial button label based on data
+(function() {
+const stageOrder = ['extracted', 'transcribed', 'analyzed', 'enriched', 'themes', 'reviewed'];
+const stageLabels = {
+'extracted': 'Transcribe',
+'transcribed': 'Analyze',
+'analyzed': 'Enrich',
+'enriched': 'Run Themes',
+'themes': 'Run Pipeline',
+'reviewed': 'Export'
+};
+const interviews = reportData.interviews || [];
+for (const interview of interviews) {
+const stages = interview.stages || [];
+for (const stage of stages) {
+if (stage.status === 'pending') {
+const btn = document.getElementById('nextStageBtn');
+if (btn) btn.textContent = 'Run Next: ' + (stageLabels[stage.key] || stage.key);
+return;
+}
+}
+}
+})();
 {% endblock %}

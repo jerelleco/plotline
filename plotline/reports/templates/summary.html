@@ -20,7 +20,8 @@ flex-direction: column; gap: 0.75rem; } .arc-item { display: flex; align-items:
 flex-start; gap: 1rem; } .arc-marker { width: 8px; height: 8px; border-radius:
 50%; margin-top: 0.5rem; flex-shrink: 0; } .arc-marker.hook { background:
 var(--color-accent-primary); } .arc-marker.body { background:
-var(--color-accent-secondary); } .arc-marker.resolution { background:
+var(--color-accent-secondary); } .arc-marker.climax { background:
+var(--color-warning); } .arc-marker.resolution { background:
 var(--color-success); } .arc-content { flex: 1; font-size: 0.875rem; color:
 var(--color-text-secondary); } .arc-role { font-size: 0.75rem; text-transform:
 uppercase; color: var(--color-text-muted); } .highlights-grid { display: grid;
@@ -77,10 +78,7 @@ color: var(--color-text-secondary); margin-top: 0.5rem; } @media print {
         {{ interview.segment_count }} segments selected
       </div>
       <div class="progress-bar mt-2">
-        <div
-          class="progress-bar-fill"
-          style="width: {{ interview.contribution_percent }}%"
-        ></div>
+        <div class="progress-bar-fill" style="width: {{ interview.contribution_percent }}%"></div>
       </div>
     </div>
     {% endfor %}
