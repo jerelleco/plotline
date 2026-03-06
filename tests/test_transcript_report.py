@@ -48,9 +48,14 @@ class TestGetThemeColor:
         assert get_theme_color(1) == "#8b5cf6"
         assert get_theme_color(7) == "#14b8a6"
 
+    def test_extended_colors(self) -> None:
+        """Theme colors now use shared 12-color palette from utils."""
+        assert get_theme_color(8) == "#6366f1"
+        assert get_theme_color(11) == "#84cc16"
+
     def test_wraps_around(self) -> None:
-        assert get_theme_color(8) == get_theme_color(0)
-        assert get_theme_color(9) == get_theme_color(1)
+        assert get_theme_color(12) == get_theme_color(0)
+        assert get_theme_color(13) == get_theme_color(1)
 
 
 class TestBuildThemeMap:
@@ -341,3 +346,47 @@ class TestGenerateTranscript:
 
         content = output_path.read_text()
         assert "No delivery analysis" in content or "plotline analyze" in content
+
+    def test_hidden_delivery_metrics_surfaced(self, tmp_project: Path) -> None:
+        """Test that hidden delivery metrics (pitch, pause, brightness) are in the report."""
+        segments_dir = tmp_project / "data" / "segments"
+        segments_dir.mkdir(parents=True, exist_ok=True)
+        segments_with_metrics = {
+            "interview_id": "interview_001",
+            "segments": [
+                {
+                    "segment_id": "interview_001_seg_001",
+                    "start": 0.0,
+                    "end": 5.0,
+                    "text": "Metrics test",
+                    "confidence": 0.9,
+                    "delivery": {
+                        "composite_score": 0.8,
+                        "energy": 0.75,
+                        "speech_rate": 0.50,
+                        "pitch_variation": 0.82,
+                        "pause_weight": 0.15,
+                        "spectral_brightness": 0.91,
+                    },
+                }
+            ],
+        }
+        with open(segments_dir / "interview_001.json", "w") as f:
+            json.dump(segments_with_metrics, f)
+
+        manifest = {"project_name": "test", "interviews": [{"id": "interview_001"}]}
+
+        output_path = generate_transcript(
+            project_path=tmp_project,
+            manifest=manifest,
+            interview_id="interview_001",
+            open_browser=False,
+        )
+
+        content = output_path.read_text()
+        assert "Pitch Variation" in content
+        assert "82%" in content
+        assert "Pause Weight" in content
+        assert "15%" in content
+        assert "Spectral Brightness" in content
+        assert "91%" in content

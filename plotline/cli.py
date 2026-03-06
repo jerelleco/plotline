@@ -1144,6 +1144,63 @@ def run_pipeline(
         cultural_flags_cmd(force=False)
         console.print()
 
+    console.print("[dim]Stage: reports[/dim]")
+    from plotline.reports.dashboard import generate_dashboard
+    from plotline.reports.review import generate_review
+    from plotline.reports.summary import generate_summary
+    from plotline.reports.coverage import generate_coverage
+    from plotline.reports.themes import generate_themes_report
+    from plotline.reports.compare import generate_compare_report
+    from plotline.reports.transcript import generate_transcript
+
+    project = Project(project_dir)
+    manifest = project.load_manifest()
+
+    generate_dashboard(project_path=project_dir, manifest=manifest, open_browser=False)
+
+    try:
+        generate_review(project_path=project_dir, manifest=manifest, open_browser=False)
+    except FileNotFoundError:
+        pass
+
+    try:
+        generate_summary(project_path=project_dir, manifest=manifest, open_browser=False)
+    except FileNotFoundError:
+        pass
+
+    try:
+        generate_coverage(project_path=project_dir, manifest=manifest, open_browser=False)
+    except FileNotFoundError:
+        pass
+
+    try:
+        generate_themes_report(project_path=project_dir, manifest=manifest, open_browser=False)
+    except FileNotFoundError:
+        pass
+
+    try:
+        generate_compare_report(
+            project_path=project_dir, manifest=manifest, config=config, open_browser=False
+        )
+    except FileNotFoundError:
+        pass
+
+    interviews = manifest.get("interviews")
+    if isinstance(interviews, list):
+        for interview in interviews:
+            if isinstance(interview, dict) and "id" in interview:
+                try:
+                    generate_transcript(
+                        project_path=project_dir,
+                        manifest=manifest,
+                        interview_id=interview["id"],
+                        open_browser=False,
+                    )
+                except FileNotFoundError:
+                    pass
+
+    console.print()
+
     console.print("[green]✓[/green] Pipeline complete!")
     console.print("\nNext steps:")
     console.print("  [cyan]plotline review[/cyan] - Review and approve selections")

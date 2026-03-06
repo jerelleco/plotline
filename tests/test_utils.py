@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from plotline.utils import format_duration, get_delivery_class
+from plotline.utils import (
+    THEME_COLORS,
+    format_duration,
+    format_duration_friendly,
+    get_delivery_class,
+    get_theme_color,
+)
 
 
 class TestFormatDuration:
@@ -51,3 +57,64 @@ class TestGetDeliveryClass:
     def test_boundary_at_04(self) -> None:
         assert get_delivery_class(0.4) == "medium"
         assert get_delivery_class(0.399) == "low"
+
+
+class TestFormatDurationFriendly:
+    def test_hours_and_minutes(self) -> None:
+        assert format_duration_friendly(3725.0) == "1h 2m"
+
+    def test_exact_hour(self) -> None:
+        assert format_duration_friendly(3600.0) == "1h 0m"
+
+    def test_multiple_hours(self) -> None:
+        assert format_duration_friendly(8100.0) == "2h 15m"
+
+    def test_minutes_only(self) -> None:
+        assert format_duration_friendly(180.0) == "3m"
+
+    def test_one_minute(self) -> None:
+        assert format_duration_friendly(60.0) == "1m"
+
+    def test_seconds_only(self) -> None:
+        assert format_duration_friendly(45.0) == "45s"
+
+    def test_zero(self) -> None:
+        assert format_duration_friendly(0.0) == "0s"
+
+    def test_fractional_seconds_truncated(self) -> None:
+        assert format_duration_friendly(90.7) == "1m"
+
+    def test_large_duration(self) -> None:
+        assert format_duration_friendly(7384.0) == "2h 3m"
+
+
+class TestThemeColors:
+    def test_palette_has_twelve_colors(self) -> None:
+        assert len(THEME_COLORS) == 12
+
+    def test_all_colors_are_hex(self) -> None:
+        for color in THEME_COLORS:
+            assert color.startswith("#")
+            assert len(color) == 7
+
+    def test_no_duplicate_colors(self) -> None:
+        assert len(set(THEME_COLORS)) == len(THEME_COLORS)
+
+
+class TestGetThemeColor:
+    def test_first_color(self) -> None:
+        assert get_theme_color(0) == "#3b82f6"
+
+    def test_last_color(self) -> None:
+        assert get_theme_color(11) == "#84cc16"
+
+    def test_wraps_around(self) -> None:
+        assert get_theme_color(12) == get_theme_color(0)
+        assert get_theme_color(13) == get_theme_color(1)
+
+    def test_large_index(self) -> None:
+        assert get_theme_color(120) == get_theme_color(0)
+
+    def test_each_index_returns_from_palette(self) -> None:
+        for i in range(12):
+            assert get_theme_color(i) == THEME_COLORS[i]
