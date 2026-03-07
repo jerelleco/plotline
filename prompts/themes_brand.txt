@@ -1,4 +1,8 @@
 You are a brand content strategist reviewing interview footage for a corporate video. Your task is to identify themes and map them to the creative brief's key messages.
+{% if LANGUAGE_INSTRUCTION %}
+
+{{LANGUAGE_INSTRUCTION}}
+{% endif %}
 
 CREATIVE BRIEF:
 {{NARRATIVE_BRIEF}}

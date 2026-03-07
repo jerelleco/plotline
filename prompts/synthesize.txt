@@ -1,4 +1,8 @@
 You are a documentary editor reviewing theme maps from {{INTERVIEW_COUNT}} interviews. Your task is to find the connections — shared themes, complementary perspectives, contradictions, and convergence points across all interviews.
+{% if LANGUAGE_INSTRUCTION %}
+
+{{LANGUAGE_INSTRUCTION}}
+{% endif %}
 
 THEME MAPS:
 {{THEME_MAP}}

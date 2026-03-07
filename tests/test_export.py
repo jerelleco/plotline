@@ -58,6 +58,52 @@ class TestTimecode:
         assert frames_to_timecode(24, 24, drop_frame=False) == "00:00:01:00"
         assert frames_to_timecode(1440, 24, drop_frame=False) == "00:01:00:00"
 
+    def test_df_timecode_round_trip_1_hour(self):
+        """Verify drop-frame round-trip at 1 hour boundary is frame-accurate."""
+        # 01:00:00;00 should convert to ~3600 seconds
+        secs = timecode_to_seconds("01:00:00;00", 29.97)
+        assert secs == pytest.approx(3600, abs=0.04)  # Within ~1 frame
+
+        # And converting 3600s to timecode should give 01:00:00;00
+        tc = seconds_to_timecode(3600, 29.97, drop_frame=True)
+        assert tc == "01:00:00;00"
+
+    def test_df_timecode_round_trip_2_hours(self):
+        """Verify drop-frame round-trip at 2 hour boundary."""
+        secs = timecode_to_seconds("02:00:00;00", 29.97)
+        assert secs == pytest.approx(7200, abs=0.04)
+
+        tc = seconds_to_timecode(7200, 29.97, drop_frame=True)
+        assert tc == "02:00:00;00"
+
+    def test_df_timecode_10_minutes(self):
+        """Verify 10-minute boundary (no frame drop at 10th minute)."""
+        secs = timecode_to_seconds("00:10:00;00", 29.97)
+        assert secs == pytest.approx(600, abs=0.04)
+
+        tc = seconds_to_timecode(600, 29.97, drop_frame=True)
+        assert tc == "00:10:00;00"
+
+    def test_df_source_timecode_offset_accuracy(self):
+        """Simulate EDL export with DF start_timecode — the critical real-world scenario."""
+        # Camera starts recording at 01:00:00;00
+        # Segment is 10 seconds into the video
+        offset = timecode_to_seconds("01:00:00;00", 29.97)
+        absolute = offset + 10.0
+        src_tc = seconds_to_timecode(absolute, 29.97, True)
+        # Must produce 01:00:10;00, not 01:00:13;18 (the old buggy result)
+        assert src_tc == "01:00:10;00"
+
+    def test_ndf_23976_frame_accurate(self):
+        """Verify 23.976 NDF timecodes are frame-accurate at key boundaries."""
+        # Frame 24 at 23.976fps occurs at exactly 1001/24000 * 24 = 1.001 seconds
+        tc = seconds_to_timecode(24 * 1001 / 24000, 23.976, drop_frame=False)
+        assert tc == "00:00:01:00"
+
+        # Frame 86400 = 1 hour of 24fps display = 3603.6 seconds at 23.976fps
+        tc = seconds_to_timecode(86400 * 1001 / 24000, 23.976, drop_frame=False)
+        assert tc == "01:00:00:00"
+
 
 class TestEDL:
     def test_generate_edl_basic(self):
@@ -189,8 +235,12 @@ class TestEDL:
         )
 
         lines = [line for line in edl.split("\n") if line.strip() and not line.startswith("*")]
+        # Each event produces 3 lines: V, A1, A2 (standard CMX 3600)
         event_lines = [line for line in lines if line[0:3].strip().isdigit()]
-        assert len(event_lines) == 2
+        assert len(event_lines) == 6  # 2 events * 3 tracks (V, A1, A2)
+        # Verify 2 distinct event numbers
+        video_lines = [line for line in event_lines if "  V  " in line]
+        assert len(video_lines) == 2
 
     def test_generate_edl_drop_frame(self):
         selections = [

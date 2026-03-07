@@ -276,6 +276,7 @@ def transcribe_all_interviews(
             write_json(output_path, transcript)
 
             interview["stages"]["transcribed"] = True
+            interview["detected_language"] = transcript.get("language")
 
             duration = (
                 format_duration(transcript["segments"][-1]["end"])

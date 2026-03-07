@@ -114,6 +114,90 @@ def format_transcript_for_prompt(segments: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+LANGUAGE_NAMES: dict[str, str] = {
+    "es": "Spanish",
+    "fr": "French",
+    "pt": "Portuguese",
+    "de": "German",
+    "it": "Italian",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "zh": "Chinese",
+    "ar": "Arabic",
+    "ru": "Russian",
+    "nl": "Dutch",
+    "pl": "Polish",
+    "tr": "Turkish",
+    "sv": "Swedish",
+    "da": "Danish",
+    "no": "Norwegian",
+    "fi": "Finnish",
+    "el": "Greek",
+    "he": "Hebrew",
+    "hi": "Hindi",
+    "ca": "Catalan",
+    "eu": "Basque",
+    "gl": "Galician",
+}
+
+
+def build_language_instruction(language: str | None) -> str | None:
+    """Build a language instruction for non-English transcripts.
+
+    Returns an instruction string telling the LLM to output theme names,
+    descriptions, and editorial notes in the transcript's language.
+    Returns None for English or unknown languages.
+
+    Args:
+        language: ISO 639-1 language code (e.g., "es", "fr")
+
+    Returns:
+        Language instruction string, or None if not needed
+    """
+    if not language or language == "en":
+        return None
+
+    name = LANGUAGE_NAMES.get(language, language)
+    return (
+        f"LANGUAGE: This transcript is in {name}. "
+        f"Provide all theme names, descriptions, emotional character descriptors, "
+        f"and editorial notes in {name}. "
+        f"Keep segment IDs, JSON field names, and structural labels in English."
+    )
+
+
+def detect_project_language(manifest: dict[str, Any]) -> str | None:
+    """Detect the dominant language across all interviews in a project.
+
+    Reads the ``detected_language`` field stored on each interview entry
+    in the manifest (set during transcription).
+
+    Args:
+        manifest: Project manifest dict
+
+    Returns:
+        ISO 639-1 language code if all interviews agree, None otherwise
+    """
+    languages = [
+        interview.get("detected_language")
+        for interview in manifest.get("interviews", [])
+        if interview.get("detected_language")
+    ]
+
+    if not languages:
+        return None
+
+    # If all interviews share the same language, use it
+    if len(set(languages)) == 1:
+        return languages[0]
+
+    # Mixed languages — return the most common one
+    from collections import Counter
+
+    most_common = Counter(languages).most_common(1)[0][0]
+    return most_common
+
+
 def format_timecode(seconds: float) -> str:
     """Format seconds as HH:MM:SS."""
     hours = int(seconds // 3600)

@@ -137,10 +137,14 @@ plotline extract
 
 ### 2. Transcription
 
-Transcribes audio using mlx-whisper (Apple Silicon) or faster-whisper.
+Transcribes audio using mlx-whisper (Apple Silicon) or faster-whisper. Language is auto-detected by Whisper and carried through the pipeline.
 
 ```bash
-plotline transcribe --model medium --language en
+# Auto-detect language (recommended)
+plotline transcribe
+
+# Or specify explicitly
+plotline transcribe --model medium --language es
 ```
 
 ### 3. Delivery Analysis
@@ -234,6 +238,31 @@ Generate timeline files for NLEs:
 - **EDL** — CMX 3600 format for DaVinci Resolve, Premiere Pro
 - **FCPXML** — Final Cut Pro XML with markers, keywords, metadata
 
+## Language Support
+
+Plotline supports non-English footage out of the box. Language is auto-detected by Whisper during transcription and carried through the entire pipeline.
+
+**How it works:**
+
+1. Whisper detects the spoken language during transcription
+2. The detected language is stored on each interview in the manifest
+3. All LLM prompts receive a bilingual instruction: English structural instructions with output (themes, summaries, narrative text) in the detected language
+4. English projects get no extra instruction — zero overhead
+
+**Supported languages:** Spanish, French, Portuguese, German, Italian, Japanese, Korean, Chinese, Arabic, Hindi, Russian, Dutch, Swedish, Norwegian, Danish, Finnish, Polish, Turkish, Thai, Vietnamese, Indonesian, Malay, and any other language Whisper can detect.
+
+**Usage:**
+
+```bash
+# Auto-detect (recommended) — works for any language
+plotline run
+
+# Or specify language explicitly
+plotline transcribe --language es
+```
+
+No additional configuration is needed. If all interviews are in the same language, LLM passes automatically output in that language. For mixed-language projects, the most common language is used.
+
 ## Configuration
 
 Configuration is stored in `plotline.yaml`:
@@ -250,6 +279,7 @@ privacy_mode: local
 # Whisper settings
 whisper_backend: mlx
 whisper_model: medium
+# whisper_language: es  # Optional — auto-detected if omitted
 
 # Output settings
 target_duration_seconds: 600

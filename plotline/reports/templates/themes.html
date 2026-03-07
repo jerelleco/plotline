@@ -543,8 +543,10 @@ align-items: stretch;
                                 📝 Transcript
                             </button>
                             {% if seg.audio_path %}
-                            <button class="btn btn-secondary btn-sm"
-                                onclick="event.stopPropagation(); playAudio('{{ seg.audio_path }}', '{{ seg.interview_id }}', '{{ seg.text[:40] }}...')">
+                            <button class="btn btn-secondary btn-sm play-btn"
+                                data-audio="{{ seg.audio_path }}"
+                                data-interview="{{ seg.interview_id }}"
+                                data-preview="{{ seg.text[:40] }}...">
                                 ▶ Play
                             </button>
                             {% endif %}
@@ -671,10 +673,20 @@ const audio = document.getElementById('audioElement');
 const player = document.getElementById('audioPlayer');
 const info = document.getElementById('audioPlayerInfo');
 audio.src = path;
-audio.play().catch(() => {});
+audio.play().catch(function(err) {
+    info.textContent = 'Audio error: ' + err.message;
+});
 player.classList.add('visible');
 info.textContent = interviewId + ': ' + textPreview;
 }
+
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.play-btn');
+    if (btn) {
+        e.stopPropagation();
+        playAudio(btn.dataset.audio, btn.dataset.interview, btn.dataset.preview);
+    }
+});
 
 function closeAudio() {
 const audio = document.getElementById('audioElement');

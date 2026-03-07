@@ -2,6 +2,65 @@
 
 All notable changes to Plotline will be documented in this file.
 
+## [0.3.1] - 2026-03-06
+
+Multilingual support, timecode accuracy, and report UI fixes.
+
+### Added
+
+#### Language Support
+
+- Automatic language detection from Whisper — detected language is stored on each interview in the manifest and carried through the entire pipeline
+- Bilingual LLM prompt injection: English instructions with output in the detected language (Spanish, French, Portuguese, and 20 other languages)
+- `build_language_instruction()` and `detect_project_language()` utilities in `plotline/llm/templates.py`
+- All LLM pass functions (`themes`, `synthesize`, `arc`, `flags`) accept a `language` parameter; CLI commands auto-detect from the manifest
+- All 5 prompt templates include conditional `{% if LANGUAGE_INSTRUCTION %}` blocks
+- English projects incur zero overhead — no instruction is injected
+- 24 new language support tests in `tests/test_language_support.py`
+
+#### Export Timecode Tests
+
+- Drop-frame round-trip tests at 1-hour and 2-hour boundaries
+- Drop-frame 10-minute boundary test (where skip pattern matters)
+- Source timecode offset accuracy test
+- NDF 23.976fps frame-accuracy test
+- 7 new tests in `tests/test_export.py` (420 total tests)
+
+### Fixed
+
+#### Export / Timecode
+
+- **CRITICAL**: `df_timecode_to_seconds()` was 108 frames (3.6 seconds) off at timecodes >= 1 hour — rewrote with correct SMPTE formula using total minutes across all hours and `1001/30000` conversion
+- `seconds_to_df_timecode()` used `29.97` instead of exact `30000/1001`, causing 1-frame drift at ~5 hours
+- FCPXML sequence duration used raw segment durations without handles while spine clips used padded durations — restructured to use cumulative padded total
+- Mixed FPS projects used non-deterministic `set.pop()` for record track fps — now uses most common fps via `max(fps_counts, key=...)`
+- Missing `duration_seconds` in interview metadata silently dropped trailing handles — now only clamps when the field is actually present
+- CLI exported to `exports/` (plural) but `Project.export_dir` is `export/` (singular) — fixed to use `export/`
+- `probe_video()` only checked video stream timecode tags — now falls back to format-level tags (MXF, etc.)
+- `test_generate_edl_multiple_selections` expected 2 event lines but EDL correctly produces V+A1+A2 per event — fixed test expectations
+
+#### Report UI
+
+- **Play buttons broken by apostrophes**: Inline `onclick` handlers with single-quoted JS string literals broke on any segment text containing `'` (extremely common in speech) — moved to `data-*` attributes with delegated click handlers
+- **No play button on review page**: Audio was only accessible via undiscoverable spacebar shortcut — added visible "Play" button to segment action bar
+- **Wrong audio after drag-drop**: `focusSegment()` indexed into the original `reportData.segments[]` array after DOM reorder — now reads audio path from the card's `data-audio` attribute
+- **CSS class mismatch**: `transcript.html` used `.segment-score.high` but `get_delivery_class()` returns `"filled"` — changed to `.segment-score.filled` (matching `themes.html`)
+- **Duplicate HTML in coverage template**: The `{% else %}` branch had a duplicate `header-meta`/`header-info` block with orphaned `</div>` tags — removed
+- **Silent audio errors**: `audio.play().catch(() => {})` swallowed all errors — now displays error message in the player info bar
+- **Always-truthy audio.src**: Review page spacebar handler checked `audio.src` which is always truthy after first use — replaced with explicit `hasAudioLoaded` boolean
+- **Spacebar target**: Transcript page spacebar triggered the first `.btn` (could be any button) — now specifically targets `.play-btn`
+
+#### Pipeline Plumbing
+
+- `whisper_language` config field was dead code — `transcribe` CLI command now reads config and falls back to `config.whisper_language/model/backend`; `run` command passes config values through
+- Detected language was dropped during enrichment — `merge.py` now preserves the `language` field
+
+### Technical Details
+
+- 33 new tests (24 language + 7 timecode + 2 test fixes), 420 total passing
+- 2 pre-existing failures in `test_coverage_report.py` remain (unrelated)
+- Zero regressions — all existing tests continue to pass
+
 ## [0.3.0] - 2026-03-03
 
 Speaker Intelligence release — pyannote.audio diarization integration.

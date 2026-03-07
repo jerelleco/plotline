@@ -153,8 +153,13 @@ def probe_video(path: Path) -> dict[str, Any]:
         resolution = f"{width}x{height}" if width and height else None
         codec = video_stream.get("codec_name")
 
+        # Check video stream tags first, then fall back to format-level tags
+        # (some containers like MXF store timecode at the format level)
         tags = video_stream.get("tags", {})
         start_timecode = tags.get("timecode")
+        if not start_timecode:
+            format_tags = format_info.get("tags", {})
+            start_timecode = format_tags.get("timecode")
 
     sample_rate = None
     if audio_stream:

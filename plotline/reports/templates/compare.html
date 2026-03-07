@@ -413,8 +413,10 @@ margin-top: 0.25rem;
             {% endif %}
 
             {% if candidate.audio_path %}
-            <button class="btn btn-secondary btn-sm audio-btn no-print"
-                onclick="playAudio('{{ candidate.audio_path }}', '{{ candidate.interview_id }}', '{{ candidate.segment_id }}')">
+            <button class="btn btn-secondary btn-sm audio-btn play-btn no-print"
+                data-audio="{{ candidate.audio_path }}"
+                data-interview="{{ candidate.interview_id }}"
+                data-segment="{{ candidate.segment_id }}">
                 ▶ Play Audio
             </button>
             {% endif %}
@@ -447,10 +449,20 @@ const player = document.getElementById('audioPlayer');
 const info = document.getElementById('audioPlayerInfo');
 
 audio.src = path;
-audio.play().catch(() => {});
+audio.play().catch(function(err) {
+    info.textContent = 'Audio error: ' + err.message;
+});
 player.classList.add('visible');
 info.textContent = interviewId + ' / ' + segmentId;
 }
+
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.play-btn');
+    if (btn) {
+        e.stopPropagation();
+        playAudio(btn.dataset.audio, btn.dataset.interview, btn.dataset.segment);
+    }
+});
 
 function closeAudio() {
 const audio = document.getElementById('audioElement');

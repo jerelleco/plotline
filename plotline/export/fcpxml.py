@@ -109,13 +109,17 @@ def generate_fcpxml(
     Returns:
         FCPXML content as string
     """
-    all_fps = set()
+    # Collect all frame rates, pick the most common for timeline format
+    fps_counts: dict[float, int] = {}
     for sel in selections:
         interview = interviews.get(sel.get("interview_id", ""), {})
-        fps = interview.get("frame_rate", 24)
-        all_fps.add(fps)
+        sel_fps = interview.get("frame_rate", 24)
+        fps_counts[sel_fps] = fps_counts.get(sel_fps, 0) + 1
 
-    fps = all_fps.pop() if all_fps else 24
+    if fps_counts:
+        fps = max(fps_counts, key=lambda f: fps_counts[f])
+    else:
+        fps = 24
 
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
@@ -150,21 +154,8 @@ def generate_fcpxml(
             asset_map[interview_id] = f"a{asset_id}"
             asset_id += 1
 
-    total_duration = sum(s.get("end", 0) - s.get("start", 0) for s in selections)
-    total_duration_tc = seconds_to_fcpxml_time(total_duration, fps)
-
-    lines.extend(
-        [
-            "    </resources>",
-            "    <library>",
-            '        <event name="Plotline Selects">',
-            f'            <project name="{project_name}">',
-            '                <sequence format="r1" tcStart="0s" tcFormat="NDF" '
-            f'duration="{total_duration_tc}">',
-            "                    <spine>",
-        ]
-    )
-
+    # Pre-compute clip data to determine actual total duration with handles
+    clip_data = []
     cumulative_offset = 0.0
 
     for i, sel in enumerate(selections, 1):
@@ -177,8 +168,10 @@ def generate_fcpxml(
 
         handle_sec = handle_frames / interview_fps
         padded_start = max(0, src_start - handle_sec)
-        interview_duration = interview.get("duration_seconds", src_end)
-        padded_end = min(interview_duration, src_end + handle_sec)
+        interview_duration = interview.get("duration_seconds")
+        padded_end = src_end + handle_sec
+        if interview_duration is not None:
+            padded_end = min(interview_duration, padded_end)
 
         clip_duration = padded_end - padded_start
 
@@ -195,17 +188,50 @@ def generate_fcpxml(
         else:
             clip_name = f"Clip {i}"
 
-        ref = asset_map.get(interview_id, "a1")
+        clip_data.append(
+            {
+                "sel": sel,
+                "interview_id": interview_id,
+                "padded_start": padded_start,
+                "clip_duration": clip_duration,
+                "clip_name": clip_name,
+                "offset": cumulative_offset,
+                "role": role,
+                "speaker": speaker,
+            }
+        )
+
+        cumulative_offset += clip_duration
+
+    total_duration_tc = seconds_to_fcpxml_time(cumulative_offset, fps)
+
+    lines.extend(
+        [
+            "    </resources>",
+            "    <library>",
+            '        <event name="Plotline Selects">',
+            f'            <project name="{project_name}">',
+            '                <sequence format="r1" tcStart="0s" tcFormat="NDF" '
+            f'duration="{total_duration_tc}">',
+            "                    <spine>",
+        ]
+    )
+
+    for clip in clip_data:
+        sel = clip["sel"]
+        ref = asset_map.get(clip["interview_id"], "a1")
+        clip_duration = clip["clip_duration"]
 
         clip_line = (
-            f'                        <clip name="{clip_name}" '
+            f'                        <clip name="{clip["clip_name"]}" '
             f'ref="{ref}" '
-            f'offset="{seconds_to_fcpxml_time(cumulative_offset, fps)}" '
-            f'start="{seconds_to_fcpxml_time(padded_start, fps)}" '
+            f'offset="{seconds_to_fcpxml_time(clip["offset"], fps)}" '
+            f'start="{seconds_to_fcpxml_time(clip["padded_start"], fps)}" '
             f'duration="{seconds_to_fcpxml_time(clip_duration, fps)}">'
         )
         lines.append(clip_line)
 
+        speaker = clip["speaker"]
         if speaker:
             lines.append(
                 f'                            <keyword start="0s" '
@@ -224,6 +250,7 @@ def generate_fcpxml(
 
         delivery_label = sel.get("delivery_label", "")
         editorial_notes = sel.get("editorial_notes", "")
+        role = clip["role"]
         if delivery_label or editorial_notes or role:
             marker_value = f"{role}: {delivery_label}" if role else delivery_label
             note_attr = f' note="{editorial_notes}"' if editorial_notes else ""
@@ -233,8 +260,6 @@ def generate_fcpxml(
             )
 
         lines.append("                        </clip>")
-
-        cumulative_offset += clip_duration
 
     lines.extend(
         [

@@ -58,6 +58,7 @@ def merge_transcript_and_delivery(
     result = {
         "interview_id": transcript.get("interview_id", "unknown"),
         "source_file": interview_metadata.get("filename") if interview_metadata else None,
+        "language": transcript.get("language"),
         "duration_seconds": transcript.get("duration_seconds", 0),
         "segment_count": len(enriched_segments),
         "enriched_at": datetime.now().isoformat(timespec="seconds"),

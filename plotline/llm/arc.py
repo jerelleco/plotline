@@ -18,6 +18,7 @@ def build_narrative_arc(
     template_manager: Any,
     config: Any,
     brief: dict[str, Any] | None = None,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Build narrative arc from synthesis and segments.
@@ -29,13 +30,14 @@ def build_narrative_arc(
         template_manager: PromptTemplateManager instance
         config: PlotlineConfig instance
         brief: Optional creative brief dict
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
         Arc dict with ordered segments
     """
     from plotline.llm.parsing import parse_llm_json, validate_arc_response
-    from plotline.llm.templates import format_synthesis_for_prompt
+    from plotline.llm.templates import build_language_instruction, format_synthesis_for_prompt
 
     segments_by_id = {}
     for seg in all_segments:
@@ -59,6 +61,10 @@ def build_narrative_arc(
         "PROFILE": config.project_profile,
         "INTERVIEW_COUNT": len(set(s.get("interview_id", "") for s in all_segments)),
     }
+
+    lang_instruction = build_language_instruction(language)
+    if lang_instruction:
+        variables["LANGUAGE_INSTRUCTION"] = lang_instruction
 
     if brief:
         variables["NARRATIVE_BRIEF"] = template_manager.format_brief_for_prompt(brief)
@@ -146,6 +152,7 @@ def run_arc_construction(
     template_manager: Any,
     config: Any,
     force: bool = False,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Run narrative arc construction.
@@ -157,6 +164,7 @@ def run_arc_construction(
         template_manager: PromptTemplateManager instance
         config: PlotlineConfig instance
         force: Re-run even if already done
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
@@ -207,6 +215,7 @@ def run_arc_construction(
         template_manager=template_manager,
         config=config,
         brief=brief,
+        language=language,
         console=console,
     )
 

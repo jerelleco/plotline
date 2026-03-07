@@ -304,6 +304,18 @@ def transcribe(
         console.print("[red]Error: Not in a Plotline project directory[/red]")
         raise typer.Exit(1)
 
+    from plotline.config import load_config
+
+    config = load_config(project_dir)
+
+    # Fall back to config values when CLI flags use defaults
+    if language is None:
+        language = config.whisper_language
+    if model == "medium":
+        model = config.whisper_model
+    if backend == "mlx":
+        backend = config.whisper_backend
+
     project = Project(project_dir)
     manifest = project.load_manifest()
 
@@ -313,7 +325,10 @@ def transcribe(
 
     from plotline.transcribe.engine import transcribe_all_interviews
 
-    console.print(f"[cyan]Transcribing with {backend} ({model} model)...[/cyan]\n")
+    lang_display = language or "auto-detect"
+    console.print(
+        f"[cyan]Transcribing with {backend} ({model} model, language: {lang_display})...[/cyan]\n"
+    )
 
     results = transcribe_all_interviews(
         project_path=project_dir,
@@ -611,12 +626,13 @@ def extract_themes(
 
     from plotline.config import load_config
     from plotline.llm.client import create_client_from_config
-    from plotline.llm.templates import PromptTemplateManager
+    from plotline.llm.templates import PromptTemplateManager, detect_project_language
     from plotline.llm.themes import extract_themes_all_interviews
 
     config = load_config(project_dir)
     client = create_client_from_config(config)
     template_manager = PromptTemplateManager(project_dir / "prompts")
+    language = detect_project_language(manifest)
 
     if dry_run:
         console.print("[yellow]Dry run mode - not sending to LLM[/yellow]")
@@ -631,6 +647,7 @@ def extract_themes(
         template_manager=template_manager,
         config=config,
         force=force,
+        language=language,
         console=console,
     )
 
@@ -664,11 +681,12 @@ def synthesize_themes_cmd(
     from plotline.config import load_config
     from plotline.llm.client import create_client_from_config
     from plotline.llm.synthesis import run_synthesis
-    from plotline.llm.templates import PromptTemplateManager
+    from plotline.llm.templates import PromptTemplateManager, detect_project_language
 
     config = load_config(project_dir)
     client = create_client_from_config(config)
     template_manager = PromptTemplateManager(project_dir / "prompts")
+    language = detect_project_language(manifest)
 
     console.print("[cyan]Synthesizing themes across interviews...[/cyan]")
 
@@ -679,6 +697,7 @@ def synthesize_themes_cmd(
         template_manager=template_manager,
         config=config,
         force=force,
+        language=language,
         console=console,
     )
 
@@ -704,11 +723,12 @@ def build_arc_cmd(
     from plotline.config import load_config
     from plotline.llm.arc import run_arc_construction
     from plotline.llm.client import create_client_from_config
-    from plotline.llm.templates import PromptTemplateManager
+    from plotline.llm.templates import PromptTemplateManager, detect_project_language
 
     config = load_config(project_dir)
     client = create_client_from_config(config)
     template_manager = PromptTemplateManager(project_dir / "prompts")
+    language = detect_project_language(manifest)
 
     console.print("[cyan]Building narrative arc...[/cyan]")
 
@@ -719,6 +739,7 @@ def build_arc_cmd(
         template_manager=template_manager,
         config=config,
         force=force,
+        language=language,
         console=console,
     )
 
@@ -801,7 +822,7 @@ def export_timeline(
         output_path = Path(output)
     else:
         project_name = manifest.get("project_name", "plotline")
-        output_path = project_dir / "exports" / f"{project_name}{ext}"
+        output_path = project_dir / "export" / f"{project_name}{ext}"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content)
@@ -1123,7 +1144,12 @@ def run_pipeline(
         if stage == "extract":
             extract_audio_cmd(force=False)
         elif stage == "transcribe":
-            transcribe(force=False)
+            transcribe(
+                model=config.whisper_model,
+                language=config.whisper_language,
+                force=False,
+                backend=config.whisper_backend,
+            )
             if config.diarization_enabled:
                 console.print("[dim]Stage: diarize[/dim]")
                 diarize_speakers(force=False)
@@ -1230,11 +1256,12 @@ def cultural_flags_cmd(
     from plotline.config import load_config
     from plotline.llm.client import create_client_from_config
     from plotline.llm.flags import run_flags
-    from plotline.llm.templates import PromptTemplateManager
+    from plotline.llm.templates import PromptTemplateManager, detect_project_language
 
     config = load_config(project_dir)
     client = create_client_from_config(config)
     template_manager = PromptTemplateManager(project_dir / "prompts")
+    language = detect_project_language(manifest)
 
     results = run_flags(
         project_path=project_dir,
@@ -1243,6 +1270,7 @@ def cultural_flags_cmd(
         template_manager=template_manager,
         config=config,
         force=force,
+        language=language,
         console=console,
     )
 

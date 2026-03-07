@@ -1,4 +1,8 @@
 You are a cultural sensitivity reviewer. Review the following selected interview segments and flag any that may touch on culturally sensitive content requiring community review before publication.
+{% if LANGUAGE_INSTRUCTION %}
+
+{{LANGUAGE_INSTRUCTION}}
+{% endif %}
 
 SELECTED SEGMENTS:
 {{TRANSCRIPT}}

@@ -18,6 +18,7 @@ def synthesize_themes(
     template_manager: Any,
     interview_count: int,
     brief: dict[str, Any] | None = None,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Synthesize themes across all interviews.
@@ -28,13 +29,14 @@ def synthesize_themes(
         template_manager: PromptTemplateManager instance
         interview_count: Number of interviews
         brief: Optional creative brief dict
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
         Synthesis dict with unified themes and best takes
     """
     from plotline.llm.parsing import parse_llm_json, validate_synthesis_response
-    from plotline.llm.templates import format_theme_map_for_prompt
+    from plotline.llm.templates import build_language_instruction, format_theme_map_for_prompt
 
     theme_maps = "\n\n".join(format_theme_map_for_prompt(t) for t in themes_data)
 
@@ -42,6 +44,10 @@ def synthesize_themes(
         "THEME_MAP": theme_maps,
         "INTERVIEW_COUNT": interview_count,
     }
+
+    lang_instruction = build_language_instruction(language)
+    if lang_instruction:
+        variables["LANGUAGE_INSTRUCTION"] = lang_instruction
 
     if brief:
         variables["NARRATIVE_BRIEF"] = template_manager.format_brief_for_prompt(brief)
@@ -70,6 +76,7 @@ def run_synthesis(
     template_manager: Any,
     config: Any,
     force: bool = False,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Run synthesis across all interviews.
@@ -81,6 +88,7 @@ def run_synthesis(
         template_manager: PromptTemplateManager instance
         config: PlotlineConfig instance
         force: Re-run even if already done
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
@@ -130,6 +138,7 @@ def run_synthesis(
         template_manager=template_manager,
         interview_count=len(themes_data),
         brief=brief,
+        language=language,
         console=console,
     )
 

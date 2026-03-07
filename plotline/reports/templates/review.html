@@ -81,7 +81,7 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
 <div class="review-container">
   <div class="timeline" id="timeline">
     {% for segment in segments %}
-    <div class="segment-card" id="segment-{{ segment.id }}" data-id="{{ segment.id }}" data-status="{{ segment.status }}" draggable="true"
+    <div class="segment-card" id="segment-{{ segment.id }}" data-id="{{ segment.id }}" data-status="{{ segment.status }}" {% if segment.audio_path %}data-audio="{{ segment.audio_path }}"{% endif %} draggable="true"
       tabindex="0">
       <div class="segment-header">
         <div>
@@ -139,6 +139,13 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
         <textarea class="user-notes-input" id="notes-{{ segment.id }}" placeholder="Add your editorial notes here..." style="width: 100%; min-height: 60px; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 0.875rem; resize: vertical;" onblur="saveApprovals()"></textarea>
       </div>
       <div class="segment-actions no-print">
+        {% if segment.audio_path %}
+        <button class="btn btn-secondary btn-sm play-btn"
+            data-audio="{{ segment.audio_path }}"
+            data-label="{{ segment.timecode }} - {{ segment.text[:50] }}...">
+            ▶ Play
+        </button>
+        {% endif %}
         <button class="btn btn-success btn-sm" onclick="setStatus('{{ segment.id }}', 'approved')">
           ✓ Approve (A)
         </button>
@@ -287,15 +294,19 @@ function toggleNotes(id) {
   }
 }
 
+let hasAudioLoaded = false;
+
 function focusSegment(index) {
 segments.forEach((s, i) => { s.classList.toggle('focused', i === index); });
 currentIndex = index;
 segments[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
 segments[index].focus();
-const segmentData = reportData.segments[index];
-if (segmentData && segmentData.audio_path) {
-audio.src = segmentData.audio_path;
-audioSource.textContent = segmentData.timecode + ' - ' + segmentData.text.substring(0, 50);
+const card = segments[index];
+const audioPath = card.dataset.audio;
+if (audioPath) {
+audio.src = audioPath;
+hasAudioLoaded = true;
+audioSource.textContent = (card.querySelector('.segment-timecode')?.textContent || '') + ' - ' + (card.querySelector('.segment-text')?.textContent || '').substring(0, 50);
 audioPlayer.style.display = 'block';
 }
 }
@@ -655,11 +666,27 @@ case 'ArrowDown': e.preventDefault(); if (currentIndex < segments.length - 1) fo
   case 'a': case 'A': if (id) setStatus(id, 'approved'); break;
   case 'x': case 'X': if (id) setStatus(id, 'rejected'); break;
   case 'f': case 'F': if (id) setStatus(id, 'flagged'); break;
-  case ' ': e.preventDefault(); if (audio.src) { audio.paused ? audio.play() : audio.pause(); } break;
+  case ' ': e.preventDefault(); if (hasAudioLoaded) { audio.paused ? audio.play().catch(function(err) { audioSource.textContent = 'Audio error: ' + err.message; }) : audio.pause(); } break;
   }
   });
 
   segments.forEach((s, i) => { s.addEventListener('click', () => focusSegment(i)); });
+
+  document.addEventListener('click', function(e) {
+      var btn = e.target.closest('.play-btn');
+      if (btn) {
+          e.stopPropagation();
+          var path = btn.dataset.audio;
+          var label = btn.dataset.label;
+          if (path) {
+              audio.src = path;
+              hasAudioLoaded = true;
+              audio.play().catch(function(err) { audioSource.textContent = 'Audio error: ' + err.message; });
+              audioSource.textContent = label || '';
+              audioPlayer.style.display = 'block';
+          }
+      }
+  });
 
   // Drag and drop functionality
   let draggedCard = null;

@@ -16,6 +16,7 @@ def flag_segments(
     segments: list[dict[str, Any]],
     client: Any,
     template_manager: Any,
+    language: str | None = None,
     console: Any = None,
 ) -> dict[str, Any]:
     """Flag culturally sensitive segments via LLM.
@@ -24,21 +25,27 @@ def flag_segments(
         segments: List of enriched segment dicts
         client: LLMClient instance
         template_manager: PromptTemplateManager instance
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
         Dict with flags list from LLM
     """
     from plotline.llm.parsing import parse_llm_json, validate_flags_response
+    from plotline.llm.templates import build_language_instruction
 
     if not segments:
         return {"flags": []}
 
     formatted = template_manager.format_transcript_for_prompt(segments)
 
-    variables = {
+    variables: dict[str, Any] = {
         "TRANSCRIPT": formatted,
     }
+
+    lang_instruction = build_language_instruction(language)
+    if lang_instruction:
+        variables["LANGUAGE_INSTRUCTION"] = lang_instruction
 
     prompt = template_manager.render("flags.txt", variables)
 
@@ -65,6 +72,7 @@ def run_flags(
     template_manager: Any,
     config: Any,
     force: bool = False,
+    language: str | None = None,
     console: Any = None,
 ) -> dict[str, Any]:
     """Run cultural sensitivity flagging on selected segments.
@@ -79,6 +87,7 @@ def run_flags(
         template_manager: PromptTemplateManager instance
         config: PlotlineConfig instance
         force: Force run even if cultural_flags is disabled
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
@@ -122,6 +131,7 @@ def run_flags(
         segments=segments,
         client=client,
         template_manager=template_manager,
+        language=language,
         console=console,
     )
 

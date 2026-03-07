@@ -1,6 +1,10 @@
 You are an experienced documentary editor building a narrative arc from interview material. You have {{INTERVIEW_COUNT}} interviews with themes already identified and synthesized.
 
 Your task: select and order segments into a {{TARGET_DURATION}} piece with a coherent narrative structure.
+{% if LANGUAGE_INSTRUCTION %}
+
+{{LANGUAGE_INSTRUCTION}}
+{% endif %}
 
 UNIFIED THEMES:
 {{SYNTHESIS}}

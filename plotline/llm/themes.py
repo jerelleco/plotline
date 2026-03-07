@@ -18,6 +18,7 @@ def extract_themes_for_interview(
     template_manager: Any,
     profile: str = "documentary",
     brief: dict[str, Any] | None = None,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Extract themes from a single interview.
@@ -28,12 +29,14 @@ def extract_themes_for_interview(
         template_manager: PromptTemplateManager instance
         profile: Project profile name
         brief: Optional creative brief dict
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
         Themes dict with extracted themes and intersections
     """
     from plotline.llm.parsing import parse_llm_json, validate_themes_response
+    from plotline.llm.templates import build_language_instruction
 
     template_name = "themes_brand.txt" if profile == "brand" and brief else "themes.txt"
 
@@ -42,6 +45,10 @@ def extract_themes_for_interview(
         "PROFILE": profile,
         "INTERVIEW_ID": segments.get("interview_id", "unknown"),
     }
+
+    lang_instruction = build_language_instruction(language)
+    if lang_instruction:
+        variables["LANGUAGE_INSTRUCTION"] = lang_instruction
 
     if brief:
         variables["NARRATIVE_BRIEF"] = template_manager.format_brief_for_prompt(brief)
@@ -71,6 +78,7 @@ def extract_themes_all_interviews(
     template_manager: Any,
     config: Any,
     force: bool = False,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Extract themes for all interviews in a project.
@@ -82,6 +90,7 @@ def extract_themes_all_interviews(
         template_manager: PromptTemplateManager instance
         config: PlotlineConfig instance
         force: Re-extract even if already done
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
@@ -150,6 +159,7 @@ def extract_themes_all_interviews(
                 template_manager=template_manager,
                 profile=config.project_profile,
                 brief=brief,
+                language=language,
                 console=console,
             )
 

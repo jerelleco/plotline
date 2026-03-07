@@ -203,7 +203,7 @@
     font-weight: 600;
 }
 
-.segment-score.high { color: var(--color-success); }
+.segment-score.filled { color: var(--color-success); }
 .segment-score.medium { color: var(--color-warning); }
 .segment-score.low { color: var(--color-error); }
 
@@ -498,7 +498,10 @@
         </div>
         <div class="segment-actions no-print">
             {% if segment.audio_path %}
-            <button class="btn btn-secondary btn-sm" onclick="playAudio('{{ segment.audio_path }}', '{{ segment.index }}', '{{ segment.text[:50] }}...')">
+            <button class="btn btn-secondary btn-sm play-btn"
+                data-audio="{{ segment.audio_path }}"
+                data-segment="{{ segment.index }}"
+                data-preview="{{ segment.text[:50] }}...">
                 ▶ Play
             </button>
             {% endif %}
@@ -635,10 +638,20 @@ function playAudio(path, segmentIndex, textPreview) {
     const info = document.getElementById('audioPlayerInfo');
 
     audio.src = path;
-    audio.play().catch(() => {});
+    audio.play().catch(function(err) {
+        info.textContent = 'Audio error: ' + err.message;
+    });
     player.classList.add('visible');
     info.textContent = '#' + segmentIndex + ': ' + textPreview;
 }
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.play-btn');
+    if (btn) {
+        e.stopPropagation();
+        playAudio(btn.dataset.audio, btn.dataset.segment, btn.dataset.preview);
+    }
+});
 
 function closeAudio() {
     const audio = document.getElementById('audioElement');
@@ -674,7 +687,7 @@ document.addEventListener('keydown', function(e) {
         e.preventDefault();
         const card = document.getElementById('segment-' + activeSegmentIndex);
         if (card) {
-            const btn = card.querySelector('.btn');
+            const btn = card.querySelector('.play-btn');
             if (btn) btn.click();
         }
     }

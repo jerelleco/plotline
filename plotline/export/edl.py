@@ -32,17 +32,18 @@ def generate_edl(
     """
     lines = []
 
-    all_fps = set()
+    # Collect all frame rates from selections, pick the most common for record track
+    fps_counts: dict[float, int] = {}
     drop_frame = False
     for sel in selections:
         interview = interviews.get(sel.get("interview_id", ""), {})
-        fps = interview.get("frame_rate", 24)
-        all_fps.add(fps)
-        if is_drop_frame_fps(fps):
+        sel_fps = interview.get("frame_rate", 24)
+        fps_counts[sel_fps] = fps_counts.get(sel_fps, 0) + 1
+        if is_drop_frame_fps(sel_fps):
             drop_frame = True
 
-    if all_fps:
-        fps = all_fps.pop()
+    if fps_counts:
+        fps = max(fps_counts, key=lambda f: fps_counts[f])
     else:
         fps = 24
 
@@ -50,6 +51,13 @@ def generate_edl(
     lines.append(f"TITLE: Plotline Selects - {project_name}")
     lines.append(f"FCM: {fcm}")
     lines.append("")
+
+    if len(fps_counts) > 1:
+        rates = ", ".join(str(r) for r in sorted(fps_counts))
+        lines.append(
+            f"* WARNING: Mixed frame rates detected ({rates}). Record track uses {fps}fps."
+        )
+        lines.append("")
 
     reel_mapping = {}
     reel_counter = 1
@@ -83,8 +91,10 @@ def generate_edl(
 
         handle_sec = handle_frames / interview_fps
         padded_start = max(0, src_start - handle_sec)
-        interview_duration = interview.get("duration_seconds", src_end)
-        padded_end = min(interview_duration, src_end + handle_sec)
+        interview_duration = interview.get("duration_seconds")
+        padded_end = src_end + handle_sec
+        if interview_duration is not None:
+            padded_end = min(interview_duration, padded_end)
 
         source_tc_offset = interview.get("start_timecode")
         if source_tc_offset:
