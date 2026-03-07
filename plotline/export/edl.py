@@ -7,10 +7,50 @@ Premiere Pro, and other NLEs.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 from plotline.export.timecode import is_drop_frame_fps, seconds_to_timecode
+
+
+def _make_reel_name(filename: str, used: set[str], counter: int) -> str:
+    """Derive a unique 8-char CMX 3600 reel name from a source filename.
+
+    Uses first 8 alphanumeric chars of the filename stem. On collision,
+    tries stem[:7] + single digit, then stem[:6] + 2-digit counter.
+
+    Args:
+        filename: Source video filename (e.g. "A_0005C909H260226_CANON.MP4")
+        used: Set of reel names already assigned
+        counter: Fallback counter for degenerate cases
+
+    Returns:
+        Unique 8-character reel name
+    """
+    stem = Path(filename).stem
+    clean = re.sub(r"[^A-Za-z0-9_]", "", stem)
+    if not clean:
+        clean = f"Reel{counter:04d}"
+
+    candidate = clean[:8]
+    if candidate not in used:
+        return candidate
+
+    # Collision — try stem[:7] + single digit
+    for i in range(1, 10):
+        candidate = f"{clean[:7]}{i}"
+        if candidate not in used:
+            return candidate
+
+    # Try stem[:6] + 2-digit counter
+    for i in range(10, 100):
+        candidate = f"{clean[:6]}{i:02d}"[:8]
+        if candidate not in used:
+            return candidate
+
+    # Ultimate fallback
+    return f"R{counter:07d}"[:8]
 
 
 def generate_edl(
@@ -59,13 +99,18 @@ def generate_edl(
         )
         lines.append("")
 
-    reel_mapping = {}
+    reel_mapping: dict[str, str] = {}
+    used_reels: set[str] = set()
     reel_counter = 1
     for sel in selections:
         interview_id = sel.get("interview_id", "")
         if interview_id not in reel_mapping:
-            reel_name = interview_id[:8] if len(interview_id) >= 8 else f"R{reel_counter:03d}"
+            interview = interviews.get(interview_id, {})
+            reel_name = _make_reel_name(
+                interview.get("filename", interview_id), used_reels, reel_counter
+            )
             reel_mapping[interview_id] = reel_name
+            used_reels.add(reel_name)
             reel_counter += 1
 
     if len(reel_mapping) > 1:
@@ -132,6 +177,7 @@ def generate_edl(
 
         filename = interview.get("filename", "unknown.mov")
         lines.append(f"* FROM CLIP NAME: {filename}")
+        lines.append(f"* SOURCE FILE: {filename}")
 
         speaker = sel.get("speaker")
         if speaker:

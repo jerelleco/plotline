@@ -2,7 +2,7 @@
 
 import pytest
 
-from plotline.export.edl import generate_edl
+from plotline.export.edl import _make_reel_name, generate_edl
 from plotline.export.fcpxml import (
     generate_fcpxml,
     get_fcpxml_format,
@@ -137,8 +137,10 @@ class TestEDL:
 
         assert "TITLE: Plotline Selects - TestProject" in edl
         assert "NON-DROP FRAME" in edl
-        assert "int-001" in edl or "R001" in edl
+        # Reel name derived from filename stem "interview1" → "intervie"
+        assert "intervie" in edl
         assert "FROM CLIP NAME: interview1.mp4" in edl
+        assert "SOURCE FILE: interview1.mp4" in edl
 
     def test_generate_edl_includes_speaker_comment(self):
         """Test that EDL includes speaker comment when present."""
@@ -239,7 +241,7 @@ class TestEDL:
         event_lines = [line for line in lines if line[0:3].strip().isdigit()]
         assert len(event_lines) == 6  # 2 events * 3 tracks (V, A1, A2)
         # Verify 2 distinct event numbers
-        video_lines = [line for line in event_lines if "  V  " in line]
+        video_lines = [line for line in event_lines if " V " in line]
         assert len(video_lines) == 2
 
     def test_generate_edl_drop_frame(self):
@@ -268,6 +270,156 @@ class TestEDL:
         )
 
         assert "DROP FRAME" in edl
+
+    def test_generate_edl_unique_reel_names_per_source(self):
+        """Different source files get distinct reel names, not all 'intervie'."""
+        selections = [
+            {"segment_id": "seg-1", "interview_id": "int-001", "start": 5.0, "end": 15.0},
+            {"segment_id": "seg-2", "interview_id": "int-002", "start": 10.0, "end": 20.0},
+            {"segment_id": "seg-3", "interview_id": "int-003", "start": 8.0, "end": 18.0},
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "A_0005C909H260226_131506PT_CANON.MP4",
+                "frame_rate": 24,
+                "duration_seconds": 600,
+            },
+            "int-002": {
+                "id": "int-002",
+                "filename": "A_0005D016H260227_094701PX_CANON.MP4",
+                "frame_rate": 24,
+                "duration_seconds": 600,
+            },
+            "int-003": {
+                "id": "int-003",
+                "filename": "A_0004C596H260225_0835138I_CANON.MP4",
+                "frame_rate": 24,
+                "duration_seconds": 600,
+            },
+        }
+
+        edl = generate_edl("TestProject", selections, interviews, handle_frames=12)
+
+        # Extract reel names from video event lines (positions 5-13 in CMX 3600)
+        event_lines = [
+            line
+            for line in edl.split("\n")
+            if line.strip() and line[:3].strip().isdigit() and " V " in line
+        ]
+        reel_names = [line[5:13].strip() for line in event_lines]
+        assert len(reel_names) == 3
+        # All three must be unique
+        assert len(set(reel_names)) == 3, f"Reel names should be unique but got: {reel_names}"
+
+    def test_generate_edl_collision_resolution(self):
+        """Files with similar names get distinct reels via collision counter."""
+        selections = [
+            {"segment_id": "seg-1", "interview_id": "int-001", "start": 0, "end": 10.0},
+            {"segment_id": "seg-2", "interview_id": "int-002", "start": 0, "end": 10.0},
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "A_0005C909_CANON.MP4",
+                "frame_rate": 24,
+                "duration_seconds": 60,
+            },
+            "int-002": {
+                "id": "int-002",
+                "filename": "A_0005C905_CANON.MP4",
+                "frame_rate": 24,
+                "duration_seconds": 60,
+            },
+        }
+
+        edl = generate_edl("TestProject", selections, interviews, handle_frames=0)
+
+        event_lines = [
+            line
+            for line in edl.split("\n")
+            if line.strip() and line[:3].strip().isdigit() and " V " in line
+        ]
+        reel_names = [line[5:13].strip() for line in event_lines]
+        assert len(reel_names) == 2
+        assert len(set(reel_names)) == 2, f"Collision not resolved: {reel_names}"
+        # Both SOURCE FILE comments present
+        assert "SOURCE FILE: A_0005C909_CANON.MP4" in edl
+        assert "SOURCE FILE: A_0005C905_CANON.MP4" in edl
+
+    def test_generate_edl_source_file_comment(self):
+        """Every event includes both FROM CLIP NAME and SOURCE FILE."""
+        selections = [
+            {"segment_id": "seg-1", "interview_id": "int-001", "start": 0, "end": 10.0},
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "my_video.mov",
+                "frame_rate": 24,
+                "duration_seconds": 60,
+            },
+        }
+
+        edl = generate_edl("TestProject", selections, interviews)
+
+        assert "* FROM CLIP NAME: my_video.mov" in edl
+        assert "* SOURCE FILE: my_video.mov" in edl
+
+
+class TestMakeReelName:
+    def test_basic_filename(self):
+        assert _make_reel_name("interview1.mp4", set(), 1) == "intervie"
+
+    def test_short_filename(self):
+        assert _make_reel_name("clip.mp4", set(), 1) == "clip"
+
+    def test_exactly_8_chars(self):
+        assert _make_reel_name("12345678.mp4", set(), 1) == "12345678"
+
+    def test_collision_resolved(self):
+        used = {"A_0005C9"}
+        result = _make_reel_name("A_0005C905_CANON.MP4", used, 2)
+        assert result != "A_0005C9"
+        assert len(result) <= 8
+        assert result not in used
+
+    def test_multiple_collisions(self):
+        used = {"A_0005C9", "A_0005C1", "A_0005C2"}
+        result = _make_reel_name("A_0005C999_CANON.MP4", used, 4)
+        assert result not in used
+        assert len(result) <= 8
+
+    def test_empty_stem_fallback(self):
+        result = _make_reel_name(".mp4", set(), 3)
+        assert len(result) <= 8
+        assert len(result) > 0
+
+    def test_special_characters_stripped(self):
+        result = _make_reel_name("my-clip (final).mp4", set(), 1)
+        # Hyphens, parens, spaces stripped; only alnum + underscore kept
+        assert result == "myclipfi"
+
+    def test_real_canon_filenames_unique(self):
+        """Real-world Canon filenames from the Homes4Hope project get unique reels."""
+        filenames = [
+            "A_0005C909H260226_131506PT_CANON.MP4",
+            "A_0005D016H260227_094701PX_CANON.MP4",
+            "A_0004C596H260225_0835138I_CANON.MP4",
+            "A_0005D037H260227_103120KF_CANON.MP4",
+            "A_0005C905H260226_121205ZK_CANON.MP4",
+            "A_0005D058H260227_120126C2_CANON.MP4",
+        ]
+        used: set[str] = set()
+        reels = []
+        for i, fn in enumerate(filenames, 1):
+            reel = _make_reel_name(fn, used, i)
+            reels.append(reel)
+            used.add(reel)
+
+        assert len(set(reels)) == 6, f"Expected 6 unique reels, got {reels}"
+        for reel in reels:
+            assert len(reel) <= 8, f"Reel '{reel}' exceeds 8 chars"
 
 
 class TestFCPXML:

@@ -487,6 +487,22 @@ function isDropFrameFPS(fps) {
 }
 
 // EDL Generator
+function makeReelName(filename, usedReels, counter) {
+    var stem = filename.replace(/\.[^.]+$/, '');
+    var clean = stem.replace(/[^A-Za-z0-9_]/g, '') || ('Reel' + String(counter).padStart(4, '0'));
+    var candidate = clean.substring(0, 8);
+    if (!usedReels.has(candidate)) return candidate;
+    for (var i = 1; i < 10; i++) {
+        candidate = clean.substring(0, 7) + String(i);
+        if (!usedReels.has(candidate)) return candidate;
+    }
+    for (var j = 10; j < 100; j++) {
+        candidate = (clean.substring(0, 6) + String(j).padStart(2, '0')).substring(0, 8);
+        if (!usedReels.has(candidate)) return candidate;
+    }
+    return ('R' + String(counter).padStart(7, '0')).substring(0, 8);
+}
+
 function generateEDL(approvals, interviews, handleFrames, projectName) {
     const lines = [];
     
@@ -506,12 +522,16 @@ function generateEDL(approvals, interviews, handleFrames, projectName) {
     lines.push("");
     
     const reelMapping = {};
+    const usedReels = new Set();
     let reelCounter = 1;
     approvals.forEach(sel => {
         const interviewId = sel.interview_id;
         if (!(interviewId in reelMapping)) {
-            const reelName = interviewId.length >= 8 ? interviewId.substring(0, 8) : `R${String(reelCounter).padStart(3,'0')}`;
+            const interview = interviews[interviewId];
+            const filename = interview ? interview.filename : interviewId;
+            const reelName = makeReelName(filename, usedReels, reelCounter);
             reelMapping[interviewId] = reelName;
+            usedReels.add(reelName);
             reelCounter++;
         }
     });
@@ -571,6 +591,7 @@ function generateEDL(approvals, interviews, handleFrames, projectName) {
         
         const filename = interview.filename || "unknown.mov";
         lines.push(`* FROM CLIP NAME: ${filename}`);
+        lines.push(`* SOURCE FILE: ${filename}`);
         
         if (sel.speaker) {
             lines.push(`* SPEAKER: ${sel.speaker}`);
