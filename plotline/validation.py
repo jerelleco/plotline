@@ -30,7 +30,8 @@ def check_ffmpeg() -> dict[str, str]:
         raise DependencyError(
             "ffmpeg",
             "FFmpeg not found in PATH",
-            "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)",
+            "Install with: winget install ffmpeg (Windows), brew install ffmpeg (macOS), "
+            "or apt install ffmpeg (Linux)",
         )
 
     try:
@@ -50,7 +51,8 @@ def check_ffmpeg() -> dict[str, str]:
         raise DependencyError(
             "ffprobe",
             "FFprobe not found in PATH",
-            "Install with: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)",
+            "Install with: winget install ffmpeg (Windows), brew install ffmpeg (macOS), "
+            "or apt install ffmpeg (Linux)",
         )
 
     try:

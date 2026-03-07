@@ -182,7 +182,7 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     temp_path = path.with_suffix(".tmp")
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    temp_path.rename(path)
+    temp_path.replace(path)
 
 
 def generate_interview_id(manifest: dict[str, Any]) -> str:

@@ -39,6 +39,13 @@ class DeliveryWeights(BaseModel):
         return v
 
 
+WHISPER_MODEL_PRESETS: dict[str, str] = {
+    "turbo": "large-v3-turbo",
+    "fast": "distil-large-v3",
+    "experimental": "large-v3",
+}
+
+
 class PlotlineConfig(BaseModel):
     """Resolved configuration for a Plotline project."""
 
@@ -47,10 +54,10 @@ class PlotlineConfig(BaseModel):
 
     privacy_mode: str = "local"
     llm_backend: str = "ollama"
-    llm_model: str = "llama3.1:70b-instruct-q4_K_M"
+    llm_model: str = "llama3:latest"
 
-    whisper_backend: str = "mlx"
-    whisper_model: str = "medium"
+    whisper_backend: str = "faster"
+    whisper_model: str = "large-v3-turbo"
     whisper_language: str | None = None
 
     segment_min_duration: float = Field(default=3.0, gt=0.0)
@@ -91,7 +98,7 @@ class PlotlineConfig(BaseModel):
     @field_validator("whisper_backend")
     @classmethod
     def validate_whisper_backend(cls, v: str) -> str:
-        valid = {"mlx", "cpp", "faster"}
+        valid = {"faster", "mlx", "cpp"}
         if v not in valid:
             raise ValueError(f"whisper_backend must be one of: {valid}")
         return v
@@ -116,7 +123,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "voice_texture": 0.05,
         },
         "target_duration_seconds": 600,
-        "llm_model": "llama3.1:70b-instruct-q4_K_M",
+        "llm_model": "llama3:latest",
         "cultural_flags": False,
     },
     "brand": {
@@ -129,7 +136,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "voice_texture": 0.15,
         },
         "target_duration_seconds": 180,
-        "llm_model": "llama3.1:70b-instruct-q4_K_M",
+        "llm_model": "llama3:latest",
         "cultural_flags": False,
     },
     "commercial-doc": {
@@ -142,7 +149,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
             "voice_texture": 0.08,
         },
         "target_duration_seconds": 300,
-        "llm_model": "llama3.1:70b-instruct-q4_K_M",
+        "llm_model": "llama3:latest",
         "cultural_flags": True,
     },
 }
@@ -202,8 +209,8 @@ def create_default_config(project_name: str, profile: str = "documentary") -> di
         "project_profile": profile,
         "privacy_mode": "local",
         "llm_backend": "ollama",
-        "whisper_backend": "mlx",
-        "whisper_model": "medium",
+        "whisper_backend": "faster",
+        "whisper_model": "large-v3-turbo",
     }
     if profile in BUILTIN_PROFILES:
         defaults = merge_config(defaults, BUILTIN_PROFILES[profile])

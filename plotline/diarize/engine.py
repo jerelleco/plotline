@@ -62,15 +62,15 @@ def get_device() -> str:
     """Get the best available device for inference.
 
     Returns:
-        Device string: 'mps', 'cuda', or 'cpu'
+        Device string: 'cuda', 'mps', or 'cpu'
     """
     try:
         import torch
 
-        if torch.backends.mps.is_available():
-            return "mps"
         if torch.cuda.is_available():
             return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
     except ImportError:
         pass
     return "cpu"

@@ -1,9 +1,14 @@
 """
 plotline.transcribe.engine - Whisper transcription engine.
 
-Uses mlx-whisper (primary) for Apple Silicon or falls back to
-other Whisper backends. Produces segment-level transcripts with
-word-level timestamps.
+Uses faster-whisper (primary, CUDA/CPU) for transcription. Falls back to
+mlx-whisper on Apple Silicon if installed. Produces segment-level transcripts
+with word-level timestamps.
+
+Model presets:
+    turbo:        large-v3-turbo  (default — best speed/quality balance)
+    fast:         distil-large-v3 (fastest, slightly lower quality)
+    experimental: large-v3        (highest quality, slowest)
 """
 
 from __future__ import annotations
@@ -12,21 +17,35 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from plotline.config import WHISPER_MODEL_PRESETS
+
+
+def resolve_whisper_model(model: str) -> str:
+    """Resolve a model preset name to the actual model identifier.
+
+    Args:
+        model: A preset name (turbo, fast, experimental) or a direct model name.
+
+    Returns:
+        The resolved model string for the Whisper backend.
+    """
+    return WHISPER_MODEL_PRESETS.get(model, model)
+
 
 def transcribe_audio(
     audio_path: Path,
-    model: str = "medium",
+    model: str = "large-v3-turbo",
     language: str | None = None,
-    backend: str = "mlx",
+    backend: str = "faster",
     console=None,
 ) -> dict[str, Any]:
     """Transcribe audio file using Whisper.
 
     Args:
         audio_path: Path to audio file (16kHz WAV recommended)
-        model: Whisper model size (tiny, base, small, medium, large)
+        model: Whisper model name or preset (turbo, fast, experimental)
         language: Language code (auto-detect if None)
-        backend: Whisper backend (mlx, faster, cpp)
+        backend: Whisper backend (faster, mlx, cpp)
         console: Optional rich console for output
 
     Returns:
@@ -37,16 +56,19 @@ def transcribe_audio(
     """
     from plotline.exceptions import TranscriptionError
 
+    resolved_model = resolve_whisper_model(model)
+
     if console:
-        console.print(f"[dim]  Loading {model} model...[/dim]")
+        label = f"{model} ({resolved_model})" if model != resolved_model else resolved_model
+        console.print(f"[dim]  Loading {label} model...[/dim]")
 
     try:
-        if backend == "mlx":
-            result = _transcribe_mlx(audio_path, model, language)
-        elif backend == "faster":
-            result = _transcribe_faster(audio_path, model, language)
+        if backend == "faster":
+            result = _transcribe_faster(audio_path, resolved_model, language)
+        elif backend == "mlx":
+            result = _transcribe_mlx(audio_path, resolved_model, language)
         elif backend == "cpp":
-            result = _transcribe_cpp(audio_path, model, language)
+            result = _transcribe_cpp(audio_path, resolved_model, language)
         else:
             raise TranscriptionError(f"Unknown backend: {backend}")
 
@@ -188,9 +210,9 @@ def _parse_whisper_result(
 def transcribe_all_interviews(
     project_path: Path,
     manifest: dict[str, Any],
-    model: str = "medium",
+    model: str = "large-v3-turbo",
     language: str | None = None,
-    backend: str = "mlx",
+    backend: str = "faster",
     force: bool = False,
     console=None,
 ) -> dict[str, Any]:

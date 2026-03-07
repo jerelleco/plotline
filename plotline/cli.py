@@ -7,8 +7,14 @@ Provides all subcommands for the Plotline pipeline.
 from __future__ import annotations
 
 import os
+import sys
 import shutil
 from pathlib import Path
+
+# Ensure UTF-8 output on Windows so Rich can render unicode symbols
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import typer
 from rich.console import Console
@@ -122,11 +128,34 @@ def init_project(
         raise typer.Exit(1)
 
 
+VIDEO_EXTENSIONS = {".mov", ".mp4", ".mkv", ".mxf", ".avi", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg"}
+
+
+def _collect_video_files(paths: list[str]) -> list[Path]:
+    """Expand paths into video files, scanning directories recursively."""
+    video_files: list[Path] = []
+    for p in paths:
+        path = Path(p).expanduser().resolve()
+        if path.is_dir():
+            for child in sorted(path.rglob("*")):
+                if child.is_file() and child.suffix.lower() in VIDEO_EXTENSIONS:
+                    video_files.append(child)
+        else:
+            video_files.append(path)
+    return video_files
+
+
 @app.command("add")
 def add_videos(
-    videos: list[str] = typer.Argument(..., help="Video file(s) to add"),
+    videos: list[str] = typer.Argument(..., help="Video file(s) or folder(s) to add"),
+    recursive: bool = typer.Option(
+        True, "--recursive/--no-recursive", "-r/-R", help="Scan folders recursively"
+    ),
 ) -> None:
     """Add video files to the project.
+
+    Accepts individual files or folders. When given a folder, scans for all
+    video files (.mov, .mp4, .mkv, .mxf, .avi, .wmv, .webm, .m4v) recursively.
 
     Probes video metadata (duration, frame rate, codec) and registers in manifest.
     """
@@ -139,6 +168,15 @@ def add_videos(
     project = Project(project_dir)
     manifest = project.load_manifest()
 
+    resolved_files = _collect_video_files(videos)
+
+    if not resolved_files:
+        console.print("[yellow]No video files found in the given path(s).[/yellow]")
+        console.print(f"[dim]Supported formats: {', '.join(sorted(VIDEO_EXTENSIONS))}[/dim]")
+        raise typer.Exit(0)
+
+    console.print(f"[dim]Found {len(resolved_files)} video file(s)[/dim]\n")
+
     added_count = 0
     skipped_count = 0
 
@@ -147,8 +185,7 @@ def add_videos(
     table.add_column("Duration", style="green")
     table.add_column("Status", style="yellow")
 
-    for video_path in videos:
-        video_file = Path(video_path).expanduser().resolve()
+    for video_file in resolved_files:
 
         if not video_file.exists():
             table.add_row(video_file.name, "-", "[red]Not found[/red]")
@@ -287,7 +324,12 @@ def extract_audio_cmd(
 
 @app.command("transcribe")
 def transcribe(
-    model: str = typer.Option("medium", "--model", "-m", help="Whisper model size"),
+    model: str = typer.Option(
+        "large-v3-turbo",
+        "--model",
+        "-m",
+        help="Whisper model name or preset (turbo, fast, experimental)",
+    ),
     language: str | None = typer.Option(
         None, "--language", "-l", help="Language code (auto-detect if not set)"
     ),
@@ -295,10 +337,24 @@ def transcribe(
         False, "--force", "-f", help="Re-transcribe already processed files"
     ),
     backend: str = typer.Option(
-        "mlx", "--backend", "-b", help="Whisper backend (mlx, faster, cpp)"
+        "faster", "--backend", "-b", help="Whisper backend (faster, mlx, cpp)"
+    ),
+    fast: bool = typer.Option(
+        False, "--fast", help="Use fast preset (distil-large-v3)"
     ),
 ) -> None:
-    """Transcribe audio using Whisper."""
+    """Transcribe audio using Whisper.
+
+    Model presets: turbo (default), fast (distil-large-v3), experimental (large-v3).
+    Or pass any Whisper model name directly with --model.
+    """
+    from plotline.transcribe.engine import resolve_whisper_model
+
+    if fast:
+        model = "fast"
+
+    resolved = resolve_whisper_model(model)
+
     project_dir = find_project_dir()
     if not project_dir:
         console.print("[red]Error: Not in a Plotline project directory[/red]")
@@ -313,7 +369,8 @@ def transcribe(
 
     from plotline.transcribe.engine import transcribe_all_interviews
 
-    console.print(f"[cyan]Transcribing with {backend} ({model} model)...[/cyan]\n")
+    label = f"{model} ({resolved})" if model != resolved else resolved
+    console.print(f"[cyan]Transcribing with {backend} ({label})...[/cyan]\n")
 
     results = transcribe_all_interviews(
         project_path=project_dir,
