@@ -847,3 +847,293 @@ class TestFCPXML:
         )
 
         assert "Speaker:" not in fcpxml
+
+    def test_generate_fcpxml_all_themes_exported(self):
+        """Test that all themes are exported, not truncated to 3."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 0,
+                "end": 10,
+                "themes": ["journey", "transformation", "hope", "resilience", "community"],
+            }
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        fcpxml = generate_fcpxml(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+        )
+
+        assert "journey" in fcpxml
+        assert "transformation" in fcpxml
+        assert "hope" in fcpxml
+        assert "resilience" in fcpxml
+        assert "community" in fcpxml
+
+    def test_generate_fcpxml_chapter_markers_at_role_transitions(self):
+        """Test that chapter markers are added at role transitions."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 0,
+                "end": 10,
+                "role": "hook",
+            },
+            {
+                "segment_id": "seg-2",
+                "interview_id": "int-001",
+                "start": 10,
+                "end": 20,
+                "role": "body",
+            },
+            {
+                "segment_id": "seg-3",
+                "interview_id": "int-001",
+                "start": 20,
+                "end": 30,
+                "role": "body",
+            },
+            {
+                "segment_id": "seg-4",
+                "interview_id": "int-001",
+                "start": 30,
+                "end": 40,
+                "role": "climax",
+            },
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        fcpxml = generate_fcpxml(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+        )
+
+        assert "chapter-marker" in fcpxml
+        assert "Hook" in fcpxml
+        assert "Body" in fcpxml
+        assert "Climax" in fcpxml
+
+    def test_generate_fcpxml_user_notes_included(self):
+        """Test that user_notes are included in FCPXML marker notes."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 0,
+                "end": 10,
+                "role": "hook",
+                "editorial_notes": "Strong opening",
+                "user_notes": "My personal note",
+            }
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        fcpxml = generate_fcpxml(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+        )
+
+        assert "Strong opening" in fcpxml
+        assert "My personal note" in fcpxml
+
+
+class TestSmartHandles:
+    """Tests for smart handle calculation using pause data."""
+
+    def test_edl_uses_pause_data_for_smaller_handles(self):
+        """When pause data is available, handles are reduced proportionally."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 10.0,
+                "end": 20.0,
+                "pause_before_sec": 0.2,  # Only 0.2s pause before
+                "pause_after_sec": 0.3,  # Only 0.3s pause after
+            }
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        edl = generate_edl(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+            handle_frames=12,  # Default = 0.5s at 24fps
+        )
+
+        # With smart handles: handle_in = min(0.5, 0.2*0.8) = 0.16s
+        # handle_out = min(0.5, 0.3*0.8) = 0.24s
+        # So src_in = 10 - 0.16 = 9.84s, src_out = 20 + 0.24 = 20.24s
+        # This is different from the default 0.5s handles
+        assert "00:00:09" in edl  # Start around 9.8s
+        assert "00:00:20" in edl  # End around 20.24s
+
+    def test_edl_uses_default_handles_when_no_pause_data(self):
+        """When pause data is absent, default handles are used."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 10.0,
+                "end": 20.0,
+                # No pause_before_sec or pause_after_sec
+            }
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        edl = generate_edl(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+            handle_frames=12,  # 0.5s at 24fps
+        )
+
+        # With default handles: src_in = 10 - 0.5 = 9.5s, src_out = 20 + 0.5 = 20.5s
+        assert "00:00:09:12" in edl  # 9.5s = 9s 12 frames
+        assert "00:00:20:12" in edl  # 20.5s = 20s 12 frames
+
+    def test_edl_uses_default_handles_when_pause_is_generous(self):
+        """When pause is generous (> default), full handles are used."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 10.0,
+                "end": 20.0,
+                "pause_before_sec": 2.0,  # Plenty of room
+                "pause_after_sec": 3.0,  # Plenty of room
+            }
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        edl = generate_edl(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+            handle_frames=12,  # 0.5s at 24fps
+        )
+
+        # Full handles used since pause * 0.8 > 0.5
+        assert "00:00:09:12" in edl  # 9.5s
+        assert "00:00:20:12" in edl  # 20.5s
+
+
+class TestUserNotesExport:
+    """Tests for user_notes export in EDL."""
+
+    def test_edl_includes_user_notes_in_comment(self):
+        """User notes are included in the EDL COMMENT line."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 10.0,
+                "end": 20.0,
+                "role": "hook",
+                "editorial_notes": "Strong delivery",
+                "user_notes": "Double-check this fact",
+            }
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        edl = generate_edl(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+        )
+
+        assert "Strong delivery" in edl
+        assert "Double-check this fact" in edl
+
+    def test_edl_comment_without_user_notes(self):
+        """EDL COMMENT works when only editorial_notes present."""
+        selections = [
+            {
+                "segment_id": "seg-1",
+                "interview_id": "int-001",
+                "start": 10.0,
+                "end": 20.0,
+                "role": "hook",
+                "editorial_notes": "Strong delivery",
+            }
+        ]
+        interviews = {
+            "int-001": {
+                "id": "int-001",
+                "filename": "interview1.mp4",
+                "source_file": "/path/to/interview1.mp4",
+                "frame_rate": 24,
+                "duration_seconds": 120,
+            }
+        }
+
+        edl = generate_edl(
+            project_name="TestProject",
+            selections=selections,
+            interviews=interviews,
+        )
+
+        assert "Strong delivery" in edl
+        assert "Note:" not in edl  # No user notes prefix

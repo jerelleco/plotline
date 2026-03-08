@@ -134,10 +134,18 @@ def generate_edl(
         src_start = sel.get("start", 0)
         src_end = sel.get("end", 0)
 
-        handle_sec = handle_frames / interview_fps
-        padded_start = max(0, src_start - handle_sec)
+        default_handle_sec = handle_frames / interview_fps
+        pause_before = sel.get("pause_before_sec", 0)
+        pause_after = sel.get("pause_after_sec", 0)
+        smart_handle_in = (
+            min(default_handle_sec, pause_before * 0.8) if pause_before > 0 else default_handle_sec
+        )
+        smart_handle_out = (
+            min(default_handle_sec, pause_after * 0.8) if pause_after > 0 else default_handle_sec
+        )
+        padded_start = max(0, src_start - smart_handle_in)
         interview_duration = interview.get("duration_seconds")
-        padded_end = src_end + handle_sec
+        padded_end = src_end + smart_handle_out
         if interview_duration is not None:
             padded_end = min(interview_duration, padded_end)
 
@@ -184,7 +192,14 @@ def generate_edl(
             lines.append(f"* SPEAKER: {speaker}")
 
         role = sel.get("role", "")
-        notes = sel.get("editorial_notes", "")
+        editorial_notes = sel.get("editorial_notes", "")
+        user_notes = sel.get("user_notes", "")
+        notes_parts = []
+        if editorial_notes:
+            notes_parts.append(editorial_notes)
+        if user_notes:
+            notes_parts.append(f"Note: {user_notes}")
+        notes = " | ".join(notes_parts)
         if role or notes:
             comment = f"[{role}] {notes}" if role else notes
             lines.append(f"* COMMENT: {comment[:80]}")
@@ -229,6 +244,14 @@ def generate_edl_from_project(
             s["segment_id"] for s in approvals.get("segments", []) if s.get("status") == "approved"
         }
         selections = [s for s in all_selections if s["segment_id"] in approved_ids]
+        user_notes_by_id = {
+            s["segment_id"]: s.get("user_notes")
+            for s in approvals.get("segments", [])
+            if s.get("segment_id") and s.get("user_notes")
+        }
+        for sel in selections:
+            if sel.get("segment_id") in user_notes_by_id:
+                sel["user_notes"] = user_notes_by_id[sel["segment_id"]]
     else:
         selections = all_selections
 
@@ -244,6 +267,94 @@ def generate_edl_from_project(
     return generate_edl(
         project_name=manifest.get("project_name", "plotline"),
         selections=selections,
+        interviews=interviews,
+        handle_frames=handle_frames,
+    )
+
+
+def generate_alternates_edl_from_project(
+    project_path: Path,
+    manifest: dict[str, Any],
+    handle_frames: int = 12,
+) -> str | None:
+    """Generate EDL of alternate candidates from arc.json.
+
+    Creates a secondary timeline where alternates are grouped by their
+    for_position, allowing editors to easily swap takes in the NLE.
+
+    Args:
+        project_path: Path to project directory
+        manifest: Project manifest dict
+        handle_frames: Handle padding in frames
+
+    Returns:
+        EDL content as string, or None if no alternates exist
+    """
+    from plotline.io import read_json
+
+    data_dir = project_path / "data"
+    arc_path = data_dir / "arc.json"
+    segments_dir = data_dir / "segments"
+
+    if not arc_path.exists():
+        return None
+
+    arc = read_json(arc_path)
+    alternates = arc.get("alternate_candidates", [])
+
+    if not alternates:
+        return None
+
+    all_segments = []
+    for seg_file in segments_dir.glob("*.json"):
+        seg_data = read_json(seg_file)
+        all_segments.extend(seg_data.get("segments", []))
+
+    segments_by_id = {s.get("segment_id"): s for s in all_segments if s.get("segment_id")}
+
+    alternate_selections = []
+    for alt in alternates:
+        seg_id = alt.get("segment_id")
+        if not seg_id:
+            continue
+        source_seg = segments_by_id.get(seg_id)
+        if not source_seg:
+            continue
+
+        delivery = source_seg.get("delivery", {})
+        raw_delivery = delivery.get("raw", {})
+
+        alternate_selections.append(
+            {
+                "segment_id": seg_id,
+                "interview_id": source_seg.get("interview_id", ""),
+                "position": alt.get("for_position", 0),
+                "start": source_seg.get("start", 0),
+                "end": source_seg.get("end", 0),
+                "text": source_seg.get("text", ""),
+                "speaker": source_seg.get("speaker"),
+                "role": f"ALT for pos {alt.get('for_position', '?')}",
+                "themes": [],
+                "composite_score": delivery.get("composite_score", 0),
+                "delivery_label": delivery.get("delivery_label", ""),
+                "pause_before_sec": raw_delivery.get("pause_before_sec", 0),
+                "pause_after_sec": raw_delivery.get("pause_after_sec", 0),
+                "editorial_notes": alt.get("reasoning", ""),
+            }
+        )
+
+    if not alternate_selections:
+        return None
+
+    alternate_selections.sort(key=lambda s: (s["position"], s["start"]))
+
+    interviews = {}
+    for interview in manifest.get("interviews", []):
+        interviews[interview["id"]] = interview
+
+    return generate_edl(
+        project_name=f"{manifest.get('project_name', 'plotline')}_alternates",
+        selections=alternate_selections,
         interviews=interviews,
         handle_frames=handle_frames,
     )

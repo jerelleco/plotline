@@ -124,6 +124,8 @@ def create_selections_from_arc(
         duration = source_seg.get("end", 0) - source_seg.get("start", 0)
         total_duration += duration
 
+        delivery = source_seg.get("delivery", {})
+        raw_delivery = delivery.get("raw", {})
         selection = {
             "segment_id": segment_id,
             "interview_id": arc_item.get("interview_id", source_seg.get("interview_id", "")),
@@ -134,8 +136,10 @@ def create_selections_from_arc(
             "speaker": source_seg.get("speaker"),
             "role": arc_item.get("role", ""),
             "themes": arc_item.get("themes", []),
-            "composite_score": source_seg.get("delivery", {}).get("composite_score", 0),
-            "delivery_label": source_seg.get("delivery", {}).get("delivery_label", ""),
+            "composite_score": delivery.get("composite_score", 0),
+            "delivery_label": delivery.get("delivery_label", ""),
+            "pause_before_sec": raw_delivery.get("pause_before_sec", 0),
+            "pause_after_sec": raw_delivery.get("pause_after_sec", 0),
             "editorial_notes": arc_item.get("editorial_notes", ""),
             "pacing": arc_item.get("pacing", ""),
             "brief_message": arc_item.get("brief_message"),

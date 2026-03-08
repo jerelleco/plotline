@@ -166,10 +166,18 @@ def generate_fcpxml(
         src_start = sel.get("start", 0)
         src_end = sel.get("end", 0)
 
-        handle_sec = handle_frames / interview_fps
-        padded_start = max(0, src_start - handle_sec)
+        default_handle_sec = handle_frames / interview_fps
+        pause_before = sel.get("pause_before_sec", 0)
+        pause_after = sel.get("pause_after_sec", 0)
+        smart_handle_in = (
+            min(default_handle_sec, pause_before * 0.8) if pause_before > 0 else default_handle_sec
+        )
+        smart_handle_out = (
+            min(default_handle_sec, pause_after * 0.8) if pause_after > 0 else default_handle_sec
+        )
+        padded_start = max(0, src_start - smart_handle_in)
         interview_duration = interview.get("duration_seconds")
-        padded_end = src_end + handle_sec
+        padded_end = src_end + smart_handle_out
         if interview_duration is not None:
             padded_end = min(interview_duration, padded_end)
 
@@ -198,6 +206,7 @@ def generate_fcpxml(
                 "offset": cumulative_offset,
                 "role": role,
                 "speaker": speaker,
+                "user_notes": sel.get("user_notes", ""),
             }
         )
 
@@ -241,7 +250,7 @@ def generate_fcpxml(
 
         themes = sel.get("themes", [])
         if themes:
-            theme_str = ", ".join(str(t) for t in themes[:3])
+            theme_str = ", ".join(str(t) for t in themes)
             lines.append(
                 f'                            <keyword start="0s" '
                 f'duration="{seconds_to_fcpxml_time(clip_duration, fps)}" '
@@ -250,10 +259,15 @@ def generate_fcpxml(
 
         delivery_label = sel.get("delivery_label", "")
         editorial_notes = sel.get("editorial_notes", "")
+        user_notes = sel.get("user_notes", "")
         role = clip["role"]
-        if delivery_label or editorial_notes or role:
+        note_parts = [editorial_notes] if editorial_notes else []
+        if user_notes:
+            note_parts.append(f"Note: {user_notes}")
+        combined_note = " | ".join(note_parts) if note_parts else ""
+        if delivery_label or combined_note or role:
             marker_value = f"{role}: {delivery_label}" if role else delivery_label
-            note_attr = f' note="{editorial_notes}"' if editorial_notes else ""
+            note_attr = f' note="{combined_note}"' if combined_note else ""
             lines.append(
                 f'                            <marker start="0s" duration="0s" '
                 f'value="{marker_value}"{note_attr}/>'
@@ -261,9 +275,34 @@ def generate_fcpxml(
 
         lines.append("                        </clip>")
 
+    chapter_markers = []
+    prev_role = None
+    for clip in clip_data:
+        role = clip.get("role", "")
+        if role and role != prev_role:
+            chapter_markers.append(
+                {
+                    "offset": clip["offset"],
+                    "role": role,
+                }
+            )
+            prev_role = role
+
     lines.extend(
         [
             "                    </spine>",
+        ]
+    )
+
+    for marker in chapter_markers:
+        role_title = marker["role"].replace("_", " ").title()
+        lines.append(
+            f'                    <chapter-marker start="{seconds_to_fcpxml_time(marker["offset"], fps)}" '
+            f'value="{role_title}"/>'
+        )
+
+    lines.extend(
+        [
             "                </sequence>",
             "            </project>",
             "        </event>",
@@ -310,6 +349,14 @@ def generate_fcpxml_from_project(
             s["segment_id"] for s in approvals.get("segments", []) if s.get("status") == "approved"
         }
         selections = [s for s in all_selections if s["segment_id"] in approved_ids]
+        user_notes_by_id = {
+            s["segment_id"]: s.get("user_notes")
+            for s in approvals.get("segments", [])
+            if s.get("segment_id") and s.get("user_notes")
+        }
+        for sel in selections:
+            if sel.get("segment_id") in user_notes_by_id:
+                sel["user_notes"] = user_notes_by_id[sel["segment_id"]]
     else:
         selections = all_selections
 

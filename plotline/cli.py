@@ -925,11 +925,17 @@ def export_timeline(
     all_segments: bool = typer.Option(
         False, "--all", "-a", help="Export all segments, ignore approval status"
     ),
+    alternates: bool = typer.Option(
+        False, "--alternates", help="Export alternate candidates as secondary timeline"
+    ),
 ) -> None:
     """Export timeline to EDL or FCPXML for DaVinci Resolve/Premiere Pro.
 
     Generates frame-accurate timeline with handle padding. By default exports
     only approved segments from the review report.
+
+    Use --alternates to export the alternate candidates from the arc as a
+    secondary timeline, useful for comparing takes in the NLE.
     """
     project_dir = find_project_dir()
     if not project_dir:
@@ -943,6 +949,29 @@ def export_timeline(
     if format not in ("edl", "fcpxml"):
         console.print(f"[red]Error: Unknown format '{format}'. Use 'edl' or 'fcpxml'.[/red]")
         raise typer.Exit(1)
+
+    if alternates:
+        from plotline.export.edl import generate_alternates_edl_from_project
+
+        content = generate_alternates_edl_from_project(
+            project_path=project_dir,
+            manifest=manifest,
+            handle_frames=handle,
+        )
+        if content is None:
+            console.print("[yellow]No alternate candidates found in arc.json[/yellow]")
+            raise typer.Exit(0)
+        project_name = manifest.get("project_name", "plotline")
+        ext = ".edl"
+        if output:
+            output_path = Path(output)
+        else:
+            output_path = project_dir / "export" / f"{project_name}_alternates{ext}"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(content)
+        console.print(f"[green]✓[/green] Exported alternates to {output_path}")
+        console.print(f"[dim]  Format: EDL, Handle: {handle} frames[/dim]")
+        return
 
     try:
         if format == "edl":
