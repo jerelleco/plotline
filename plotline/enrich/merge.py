@@ -35,8 +35,12 @@ def merge_transcript_and_delivery(
     Returns:
         Enriched segments dict with filtering applied if configured
     """
-    transcript_segments = {s["segment_id"]: s for s in transcript.get("segments", [])}
-    delivery_segments = {s["segment_id"]: s for s in delivery.get("segments", [])}
+    transcript_segments = {
+        s["segment_id"]: s for s in transcript.get("segments", []) if "segment_id" in s
+    }
+    delivery_segments = {
+        s["segment_id"]: s for s in delivery.get("segments", []) if "segment_id" in s
+    }
 
     enriched_segments = []
     filtered_count = 0
@@ -110,7 +114,7 @@ def enrich_all_interviews(
     from rich.table import Table
 
     from plotline.diarize.speakers import load_speaker_config
-    from plotline.project import read_json, write_json
+    from plotline.io import read_json, write_json
 
     data_dir = project_path / "data"
     transcripts_dir = data_dir / "transcripts"

@@ -243,7 +243,7 @@ def analyze_all_interviews(
     """
     from rich.table import Table
 
-    from plotline.project import read_json, write_json
+    from plotline.io import read_json, write_json
 
     data_dir = project_path / "data"
     transcripts_dir = data_dir / "transcripts"
