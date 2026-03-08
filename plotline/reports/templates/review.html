@@ -427,18 +427,17 @@ localStorage.setItem('plotline_approvals_{{ project_name }}', JSON.stringify(pay
 // Bug fix: selectors must target .summary-stat-value.text-* (the inner div),
 // not .summary-stat.text-* (the outer wrapper, which never has those classes).
 function updateSummary() {
-let approved = 0, rejected = 0, flagged = 0, culturallyFlagged = 0;
+let approved = 0, rejected = 0, flagged = 0;
 segments.forEach(s => {
 if (s.dataset.status === 'approved') approved++;
 else if (s.dataset.status === 'rejected') rejected++;
 else if (s.dataset.status === 'flagged') flagged++;
-if (s.dataset.culturallyFlagged === 'true') culturallyFlagged++;
 });
 document.querySelector('.summary-stat-value.text-success').textContent = approved;
 document.querySelector('.summary-stat-value.text-error').textContent = rejected;
 document.querySelector('.summary-stat-value.text-warning').textContent = flagged;
 const total = segments.length;
-const reviewed = approved + rejected + flagged + culturallyFlagged;
+const reviewed = approved + rejected + flagged;
 const pct = total > 0 ? (reviewed / total * 100) : 0;
 const fill = document.querySelector('.progress-bar-fill');
 if (fill) fill.style.width = pct.toFixed(1) + '%';

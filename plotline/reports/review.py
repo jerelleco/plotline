@@ -101,7 +101,11 @@ def generate_review(
     approvals = {}
     if approvals_path.exists():
         approvals_data = read_json(approvals_path)
-        approvals = {s["segment_id"]: s["status"] for s in approvals_data.get("segments", [])}
+        approvals = {
+            s.get("segment_id"): s["status"]
+            for s in approvals_data.get("segments", [])
+            if s.get("segment_id")
+        }
 
     interviews_map = {}
     for interview in manifest.get("interviews", []):
@@ -195,7 +199,7 @@ def generate_review(
         )
 
     total_segments = len(segments_data)
-    reviewed_count = approved_count + rejected_count + flagged_count + cultural_flag_count
+    reviewed_count = approved_count + rejected_count + flagged_count
     progress_percent = (reviewed_count / total_segments * 100) if total_segments > 0 else 0
 
     interviews_data = {

@@ -23,7 +23,6 @@ def get_stage_status(stages: dict[str, bool]) -> list[dict[str, Any]]:
         ("analyzed", "Ana", "Analysis"),
         ("enriched", "Enr", "Enrichment"),
         ("themes", "Thm", "Themes"),
-        ("reviewed", "Rev", "Review"),
     ]
 
     result = []
