@@ -2,6 +2,32 @@
 
 All notable changes to Plotline will be documented in this file.
 
+## [0.3.6] - 2026-03-08
+
+Enhanced EDL/FCPXML export for professional NLE workflows.
+
+### Added
+
+#### Export Improvements
+
+- **Smart Handles**: Handles now use `pause_before_sec` and `pause_after_sec` data to automatically reduce padding when natural pauses are short. A segment with 0.2s pause before gets a 0.16s handle instead of the default 0.5s, preventing dialogue overlap.
+- **Chapter Markers**: FCPXML now includes chapter markers at role transitions (hook→body→climax→resolution), making it easy to navigate the narrative structure in Final Cut Pro.
+- **Alternates Export**: New `--alternates` flag exports all alternate candidates as a secondary EDL timeline, allowing editors to compare takes directly in their NLE.
+- **Full Theme Export**: FCPXML now exports all themes as keywords (previously truncated to 3).
+
+#### Metadata Export
+
+- **User Notes**: Notes added during review are now included in EDL COMMENT lines and FCPXML marker notes.
+- **Pause Data Propagation**: `pause_before_sec` and `pause_after_sec` are now stored in selections.json for smart handle calculation at export time.
+
+### Changed
+
+- **arc.py**: `create_selections_from_arc()` now includes delivery raw metrics (pause_before_sec, pause_after_sec) in selections
+
+### Tests
+
+- **447 passed, 0 failed, 2 skipped** — 8 new tests for smart handles, user_notes export, chapter markers, and all-themes export
+
 ## [0.3.5] - 2026-03-08
 
 Full pipeline audit — fixed bugs across all 5 stages (Prep, Extract, Transcribe, Analyze, Enrich, LLM, Reports, Export).
@@ -43,6 +69,15 @@ Full pipeline audit — fixed bugs across all 5 stages (Prep, Extract, Transcrib
   - `reports/compare.py`, `reports/coverage.py`, `reports/dashboard.py`, `reports/review.py`
   - `reports/summary.py`, `reports/themes.py`, `reports/transcript.py`
   - `export/edl.py`, `export/fcpxml.py`
+
+#### Stage 6: HTML Templates
+
+- **dashboard.py**: Removed stale `"reviewed"` from `stage_order` — this stage was removed from the pipeline in v0.3.4 but still rendered as a permanently-pending badge
+- **dashboard.html**: Removed `'reviewed'` from JS `stageCommands`/`stageOrder`/`stageLabels` so the "Run Next Stage" button reaches the correct terminal state
+- **review.py**: Guarded `s["segment_id"]` with `.get()` and `None` filter to prevent `KeyError` on corrupt approvals.json entries
+- **review.py**: Removed `cultural_flag_count` from `reviewed_count` — cultural flags are AI annotations, not user review actions, and were double-counting flagged segments in progress bar
+- **review.html**: Same double-count fix in `updateSummary()` JS function
+- **themes.py**: Replaced hardcoded `strength: 0.8` with normalized `source_count / max_source_count` (floor 0.3) so the strength bar differentiates themes
 
 ### Architecture Improvements
 
