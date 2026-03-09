@@ -6,6 +6,10 @@ This guide walks you through the complete end-to-end workflow: from initializing
 
 ---
 
+> **Visual Overview:** See [Workflow Diagrams](workflow-diagram.md) for side-by-side comparisons, time savings analysis, AI vs human responsibilities, and data flow architecture.
+
+---
+
 ## Stage 1: Project Setup
 
 Before you begin, gather your video interviews and an optional creative brief.

@@ -10,10 +10,15 @@ Welcome to the Plotline documentation. Plotline is an AI-assisted documentary ed
 ## User Guides
 
 - **[Workflow Guide](workflow-guide.md)** — End-to-end tutorial for the complete pipeline
+- **[Workflow Diagrams](workflow-diagram.md)** — Visual comparison of traditional vs Plotline workflows, time savings, AI vs human responsibilities, and data flow architecture
 - **[Export Guide](export-guide.md)** — EDL/FCPXML export, handles, NLE import workflows
 - **[Reports Guide](reports-guide.md)** — HTML reports and keyboard shortcuts
 - **[Creative Briefs](creative-brief.md)** — Guide LLM analysis with your project goals
 - **[FAQ](FAQ.md)** — Common questions and solutions
+
+## Visual References
+
+- **[Workflow Diagrams](workflow-diagram.md)** — Visual comparison of traditional vs Plotline workflows, time savings, and data flow architecture
 
 ## Reference
 

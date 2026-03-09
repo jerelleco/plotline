@@ -15,6 +15,39 @@ Plotline analyzes interview footage to identify the most compelling moments and 
 Video Interview → Audio → Transcript → Delivery Analysis → LLM Themes → Narrative Arc → EDL/FCPXML
 ```
 
+## Workflow at a Glance
+
+### Traditional vs Plotline
+
+```mermaid
+flowchart LR
+    subgraph Traditional
+        T1[Watch all footage] --> T2[Transcribe manually]
+        T2 --> T3[Find themes]
+        T3 --> T4[Select & assemble]
+        T4 --> T5[Iterate]
+        T5 --> T6[Export]
+    end
+    
+    subgraph Plotline
+        P1[Add footage] --> P2[plotline run]
+        P2 --> P3[Review: Approve/Reject]
+        P3 --> P4[Export]
+    end
+    
+    style T1 fill:#fecaca
+    style T2 fill:#fecaca
+    style T3 fill:#fecaca
+    style T4 fill:#fecaca
+    style T5 fill:#fecaca
+    style P2 fill:#bbf7d0
+    style P3 fill:#fef3c7
+```
+
+**Time savings:** ~85% reduction in editing time for 10+ hours of footage.
+
+See [Workflow Diagrams](docs/workflow-diagram.md) for detailed comparisons, AI vs human responsibilities, and data flow architecture.
+
 ## Installation
 
 ```bash
