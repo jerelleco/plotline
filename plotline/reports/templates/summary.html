@@ -31,7 +31,11 @@ var(--radius-md); padding: 1rem; border-left: 3px solid
 var(--color-delivery-high); } .highlight-score { font-size: 1.5rem; font-weight:
 700; color: var(--color-success); } .highlight-text { font-size: 0.875rem;
 color: var(--color-text-secondary); margin-top: 0.5rem; } @media print {
-.summary-section { break-inside: avoid; } } {% endblock %} {% block content %}
+.summary-section { break-inside: avoid; } }
+.stat-card { background: var(--color-bg-secondary); border-radius: var(--radius-md); padding: 1.5rem; text-align: center; }
+.stat-value { font-size: 2rem; font-weight: 700; color: var(--color-text-primary); }
+.stat-label { font-size: 0.875rem; color: var(--color-text-secondary); margin-top: 0.25rem; }
+{% endblock %} {% block content %}
 <div class="header">
   <div>
     <h1>{{ project_name }}</h1>

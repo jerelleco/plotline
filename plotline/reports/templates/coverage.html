@@ -606,7 +606,7 @@
         {% if gap is string %}
         <div class="gap-item">{{ gap }}</div>
         {% elif gap is mapping %}
-        <div class="gap-item">{{ gap.get('message', gap.get('description', gap)) }}</div>
+        <div class="gap-item">{{ gap.get('message', gap.get('description', '')) }}</div>
         {% else %}
         <div class="gap-item">{{ gap }}</div>
         {% endif %}

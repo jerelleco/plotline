@@ -260,7 +260,7 @@ const audioSource = document.getElementById('audioSource');
 // Restore any previously saved approvals from localStorage
 (function restoreApprovals() {
 try {
-const saved = localStorage.getItem('plotline_approvals_{{ project_name }}');
+const saved = localStorage.getItem('plotline_approvals_' + reportData.project_name);
 if (!saved) return;
 const data = JSON.parse(saved);
 (data.segments || []).forEach(entry => {
@@ -420,7 +420,7 @@ custom_order: customOrder
 function saveApprovals() {
 const payload = buildApprovalsPayload();
 try {
-localStorage.setItem('plotline_approvals_{{ project_name }}', JSON.stringify(payload));
+localStorage.setItem('plotline_approvals_' + reportData.project_name, JSON.stringify(payload));
 } catch(e) {}
 }
 
@@ -664,8 +664,8 @@ function exportApproved() {
     }
     
     try {
-        localStorage.setItem('plotline_approvals_{{ project_name }}', JSON.stringify(payload));
-    } catch(e) {}
+localStorage.setItem('plotline_approvals_' + reportData.project_name, JSON.stringify(payload));
+} catch(e) {}
     
     if (format === 'edl') {
         const approvalsWithMeta = payload.segments
@@ -799,7 +799,8 @@ case 'ArrowDown': e.preventDefault(); if (currentIndex < segments.length - 1) fo
       });
   });
 
-  // Handle deep links
+  // Handle deep links and initial focus in a single DOMContentLoaded handler
+  // so that focusSegment(0) never fires before a deep-link target is resolved.
   window.addEventListener('DOMContentLoaded', () => {
     if (window.location.hash) {
       const hash = window.location.hash.substring(1);
@@ -813,10 +814,11 @@ case 'ArrowDown': e.preventDefault(); if (currentIndex < segments.length - 1) fo
           }
         }
       }
+    } else if (segments.length > 0) {
+      focusSegment(0);
     }
   });
 
   updateSummary();
-  if (segments.length > 0 && !window.location.hash) { focusSegment(0); }
 
   {% endblock %}

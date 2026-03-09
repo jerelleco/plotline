@@ -87,13 +87,16 @@ def generate_compare_report(
             }
         )
 
-    key_messages = []
+    key_messages: list[str] = []
     brief_path = project_path / "brief.json"
     if brief_path.exists():
         from plotline.io import read_json
 
         brief = read_json(brief_path)
-        key_messages = brief.get("key_messages", [])
+        raw_messages = brief.get("key_messages", [])
+        # key_messages may be list[str] or list[{"id": ..., "text": ...}] —
+        # normalise to list[str] so the template can always do {{ msg }} and msg[:50].
+        key_messages = [m["text"] if isinstance(m, dict) else str(m) for m in raw_messages]
 
     data = {
         "project_name": compare_data.get("project_name", "Plotline Project"),

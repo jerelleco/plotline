@@ -225,10 +225,15 @@ def generate_themes_report(
         for iid in interview_ids
     ]
 
+    # Build a keyed dict for O(1) lookup in the template, replacing the O(n²)
+    # `selectattr` scan that was previously done per-segment inside per-theme loops.
+    segment_lookup_by_id = {seg["id"]: seg for seg in themed_segments}
+
     data = {
         "project_name": manifest.get("project_name", "Plotline Project"),
         "themes": themes_list,
         "segments": themed_segments,
+        "segment_lookup": segment_lookup_by_id,
         "intersections": intersections,
         "interviews": interviews,
         "total_themes": len(themes_list),

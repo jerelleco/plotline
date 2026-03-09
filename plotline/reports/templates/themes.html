@@ -509,7 +509,7 @@ align-items: stretch;
                 {% endif %}
 
                 {% for seg_id in theme.segment_ids %}
-                {% set seg = data.segments | selectattr("id", "equalto", seg_id) | first %}
+                {% set seg = segment_lookup.get(seg_id) %}
                 {% if seg %}
                 <div class="segment-card" data-segment-id="{{ seg.id }}" data-interview="{{ seg.interview_id }}"
                     data-score="{{ seg.delivery_score }}" data-start="{{ seg.start }}"
