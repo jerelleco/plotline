@@ -109,12 +109,13 @@ plotline export --format edl
 
 ### Export
 
-| Command                           | Description                            |
-| --------------------------------- | -------------------------------------- |
-| `plotline export --format edl`    | Export CMX 3600 EDL                    |
-| `plotline export --format fcpxml` | Export FCPXML 1.11                     |
-| `plotline export --all`           | Export all segments (ignore approvals) |
-| `plotline export --handle 24`     | Custom handle padding (frames)         |
+| Command                              | Description                                         |
+| ------------------------------------ | --------------------------------------------------- |
+| `plotline export --format edl`       | Export CMX 3600 EDL                                 |
+| `plotline export --format fcpxml`    | Export FCPXML 1.11 with chapter markers             |
+| `plotline export --all`              | Export all segments (ignore approvals)              |
+| `plotline export --handle 24`        | Custom handle padding (frames)                      |
+| `plotline export --alternates`       | Export alternate candidates as secondary timeline   |
 
 ### Other
 
@@ -271,7 +272,33 @@ speakers:
 Generate timeline files for NLEs:
 
 - **EDL** — CMX 3600 format for DaVinci Resolve, Premiere Pro
-- **FCPXML** — Final Cut Pro XML with markers, keywords, metadata
+- **FCPXML** — Final Cut Pro XML with markers, keywords, chapter markers, metadata
+
+#### Handles
+
+Handles are padding added before and after each clip to give editors room for transitions. Default is 12 frames (0.5s at 24fps).
+
+```bash
+plotline export --handle 24  # 1 second at 24fps
+```
+
+#### Smart Handles
+
+Plotline automatically reduces handles when natural pauses are short. If a segment has only 0.2s of silence before it, the handle is reduced instead of cutting into the next speaker. This prevents dialogue overlap in tight edits.
+
+#### Chapter Markers (FCPXML)
+
+FCPXML exports include chapter markers at narrative role transitions (Hook → Body → Climax → Resolution), making it easy to navigate story structure in Final Cut Pro.
+
+#### Alternate Candidates
+
+Export all alternate takes as a secondary timeline for easy comparison:
+
+```bash
+plotline export --alternates
+```
+
+This generates `{project}_alternates.edl` with segments grouped by position, so you can copy/paste between timelines to swap takes.
 
 ## Language Support
 
@@ -626,6 +653,26 @@ ruff check plotline/
 # Type check
 pyright plotline/
 ```
+
+## Documentation
+
+- **[Getting Started](docs/getting-started.md)** — 5-minute quickstart
+- **[Workflow Guide](docs/workflow-guide.md)** — End-to-end tutorial
+- **[Export Guide](docs/export-guide.md)** — NLE export workflows, handles, alternates
+- **[Reports Guide](docs/reports-guide.md)** — HTML reports and keyboard shortcuts
+- **[Creative Briefs](docs/creative-brief.md)** — Guide LLM analysis with your goals
+- **[FAQ](docs/FAQ.md)** — Common questions and solutions
+- **[Documentation Index](docs/index.md)** — All guides and references
+
+## What's New in v0.3.6
+
+- **Smart Handles**: Handles automatically reduce when natural pauses are short
+- **Chapter Markers**: FCPXML exports include chapter markers at role transitions
+- **Alternates Export**: New `--alternates` flag for comparing takes in your NLE
+- **Full Theme Export**: All themes now exported to FCPXML (previously truncated to 3)
+- **User Notes Export**: Review notes now included in EDL/FCPXML exports
+
+See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
 ## License
 
