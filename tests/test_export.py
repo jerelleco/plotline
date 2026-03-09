@@ -553,8 +553,9 @@ class TestEDLCompliance:
 
         edl = generate_edl("Test", selections, interviews, handle_frames=12)
 
-        # Handle of 12 frames at 24fps = 0.5s, so end = 60.0 + 0.5 = 60.5s
-        src_out = seconds_to_timecode(60.5, 24, False)
+        # No pause data means pause==0 → zero handle (contiguous speech).
+        # So src_out = 60.0s with no padding and no duration clamp.
+        src_out = seconds_to_timecode(60.0, 24, False)
         assert src_out in edl
 
     def test_df_timecode_offset_in_edl(self):
@@ -1006,15 +1007,19 @@ class TestSmartHandles:
         assert "00:00:09" in edl  # Start around 9.8s
         assert "00:00:20" in edl  # End around 20.24s
 
-    def test_edl_uses_default_handles_when_no_pause_data(self):
-        """When pause data is absent, default handles are used."""
+    def test_edl_uses_zero_handles_when_no_pause_data(self):
+        """When pause data is absent (defaults to 0), zero handles are used.
+
+        pause==0 means contiguous speech with no gap — there is no room for a
+        handle, so the padded in/out equals the raw in/out.
+        """
         selections = [
             {
                 "segment_id": "seg-1",
                 "interview_id": "int-001",
                 "start": 10.0,
                 "end": 20.0,
-                # No pause_before_sec or pause_after_sec
+                # No pause_before_sec or pause_after_sec → both default to 0
             }
         ]
         interviews = {
@@ -1031,12 +1036,12 @@ class TestSmartHandles:
             project_name="TestProject",
             selections=selections,
             interviews=interviews,
-            handle_frames=12,  # 0.5s at 24fps
+            handle_frames=12,  # 0.5s at 24fps, but not applied when pause==0
         )
 
-        # With default handles: src_in = 10 - 0.5 = 9.5s, src_out = 20 + 0.5 = 20.5s
-        assert "00:00:09:12" in edl  # 9.5s = 9s 12 frames
-        assert "00:00:20:12" in edl  # 20.5s = 20s 12 frames
+        # Zero handles: src_in = 10.0s, src_out = 20.0s (no padding)
+        assert "00:00:10:00" in edl
+        assert "00:00:20:00" in edl
 
     def test_edl_uses_default_handles_when_pause_is_generous(self):
         """When pause is generous (> default), full handles are used."""

@@ -71,6 +71,7 @@ def merge_transcript_and_delivery(
         delivery_data = dseg.get("normalized", {})
         delivery_data["composite_score"] = dseg.get("composite_score", 0)
         delivery_data["delivery_label"] = dseg.get("delivery_label", "")
+        delivery_data["raw"] = dseg.get("raw", {})
         enriched["delivery"] = delivery_data
 
         enriched_segments.append(enriched)

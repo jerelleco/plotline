@@ -10,6 +10,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
+from xml.sax.saxutils import escape as xml_escape
+
+
+def _xa(value: str) -> str:
+    """Escape a string for safe use in an XML attribute value (double-quoted).
+
+    Escapes &, <, > and " so that the result can be safely embedded
+    inside a double-quoted XML attribute without producing malformed markup.
+    """
+    return xml_escape(str(value), entities={'"': "&quot;"})
 
 
 def seconds_to_fcpxml_time(seconds: float, fps: float) -> str:
@@ -145,7 +155,7 @@ def generate_fcpxml(
             duration = interview.get("duration_seconds", 0)
 
             lines.append(
-                f'        <asset id="a{asset_id}" name="{source_path.stem}" '
+                f'        <asset id="a{asset_id}" name="{_xa(source_path.stem)}" '
                 f'src="{path_to_file_url(source_path)}" '
                 f'start="0s" duration="{seconds_to_fcpxml_time(duration, fps)}" '
                 f'hasVideo="1" hasAudio="1" format="r1" '
@@ -169,12 +179,8 @@ def generate_fcpxml(
         default_handle_sec = handle_frames / interview_fps
         pause_before = sel.get("pause_before_sec", 0)
         pause_after = sel.get("pause_after_sec", 0)
-        smart_handle_in = (
-            min(default_handle_sec, pause_before * 0.8) if pause_before > 0 else default_handle_sec
-        )
-        smart_handle_out = (
-            min(default_handle_sec, pause_after * 0.8) if pause_after > 0 else default_handle_sec
-        )
+        smart_handle_in = min(default_handle_sec, pause_before * 0.8) if pause_before > 0 else 0.0
+        smart_handle_out = min(default_handle_sec, pause_after * 0.8) if pause_after > 0 else 0.0
         padded_start = max(0, src_start - smart_handle_in)
         interview_duration = interview.get("duration_seconds")
         padded_end = src_end + smart_handle_out
@@ -219,7 +225,7 @@ def generate_fcpxml(
             "    </resources>",
             "    <library>",
             '        <event name="Plotline Selects">',
-            f'            <project name="{project_name}">',
+            f'            <project name="{_xa(project_name)}">',
             '                <sequence format="r1" tcStart="0s" tcFormat="NDF" '
             f'duration="{total_duration_tc}">',
             "                    <spine>",
@@ -232,7 +238,7 @@ def generate_fcpxml(
         clip_duration = clip["clip_duration"]
 
         clip_line = (
-            f'                        <clip name="{clip["clip_name"]}" '
+            f'                        <clip name="{_xa(clip["clip_name"])}" '
             f'ref="{ref}" '
             f'offset="{seconds_to_fcpxml_time(clip["offset"], fps)}" '
             f'start="{seconds_to_fcpxml_time(clip["padded_start"], fps)}" '
@@ -245,7 +251,7 @@ def generate_fcpxml(
             lines.append(
                 f'                            <keyword start="0s" '
                 f'duration="{seconds_to_fcpxml_time(clip_duration, fps)}" '
-                f'value="Speaker: {speaker}"/>'
+                f'value="{_xa(f"Speaker: {speaker}")}"/>'
             )
 
         themes = sel.get("themes", [])
@@ -254,7 +260,7 @@ def generate_fcpxml(
             lines.append(
                 f'                            <keyword start="0s" '
                 f'duration="{seconds_to_fcpxml_time(clip_duration, fps)}" '
-                f'value="{theme_str}"/>'
+                f'value="{_xa(theme_str)}"/>'
             )
 
         delivery_label = sel.get("delivery_label", "")
@@ -267,10 +273,10 @@ def generate_fcpxml(
         combined_note = " | ".join(note_parts) if note_parts else ""
         if delivery_label or combined_note or role:
             marker_value = f"{role}: {delivery_label}" if role else delivery_label
-            note_attr = f' note="{combined_note}"' if combined_note else ""
+            note_attr = f' note="{_xa(combined_note)}"' if combined_note else ""
             lines.append(
                 f'                            <marker start="0s" duration="0s" '
-                f'value="{marker_value}"{note_attr}/>'
+                f'value="{_xa(marker_value)}"{note_attr}/>'
             )
 
         lines.append("                        </clip>")
@@ -298,7 +304,7 @@ def generate_fcpxml(
         role_title = marker["role"].replace("_", " ").title()
         lines.append(
             f'                    <chapter-marker start="{seconds_to_fcpxml_time(marker["offset"], fps)}" '
-            f'value="{role_title}"/>'
+            f'value="{_xa(role_title)}"/>'
         )
 
     lines.extend(
@@ -348,17 +354,21 @@ def generate_fcpxml_from_project(
         approved_ids = {
             s["segment_id"] for s in approvals.get("segments", []) if s.get("status") == "approved"
         }
-        selections = [s for s in all_selections if s["segment_id"] in approved_ids]
         user_notes_by_id = {
             s["segment_id"]: s.get("user_notes")
             for s in approvals.get("segments", [])
             if s.get("segment_id") and s.get("user_notes")
         }
-        for sel in selections:
+        selections = []
+        for s in all_selections:
+            if s["segment_id"] not in approved_ids:
+                continue
+            sel = dict(s)  # shallow copy — prevents mutating the parsed JSON dicts
             if sel.get("segment_id") in user_notes_by_id:
                 sel["user_notes"] = user_notes_by_id[sel["segment_id"]]
+            selections.append(sel)
     else:
-        selections = all_selections
+        selections = list(all_selections)  # copy so sort below doesn't mutate source
 
     if not selections:
         raise ValueError("No approved selections to export")

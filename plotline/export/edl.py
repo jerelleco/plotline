@@ -137,12 +137,8 @@ def generate_edl(
         default_handle_sec = handle_frames / interview_fps
         pause_before = sel.get("pause_before_sec", 0)
         pause_after = sel.get("pause_after_sec", 0)
-        smart_handle_in = (
-            min(default_handle_sec, pause_before * 0.8) if pause_before > 0 else default_handle_sec
-        )
-        smart_handle_out = (
-            min(default_handle_sec, pause_after * 0.8) if pause_after > 0 else default_handle_sec
-        )
+        smart_handle_in = min(default_handle_sec, pause_before * 0.8) if pause_before > 0 else 0.0
+        smart_handle_out = min(default_handle_sec, pause_after * 0.8) if pause_after > 0 else 0.0
         padded_start = max(0, src_start - smart_handle_in)
         interview_duration = interview.get("duration_seconds")
         padded_end = src_end + smart_handle_out
@@ -243,17 +239,21 @@ def generate_edl_from_project(
         approved_ids = {
             s["segment_id"] for s in approvals.get("segments", []) if s.get("status") == "approved"
         }
-        selections = [s for s in all_selections if s["segment_id"] in approved_ids]
         user_notes_by_id = {
             s["segment_id"]: s.get("user_notes")
             for s in approvals.get("segments", [])
             if s.get("segment_id") and s.get("user_notes")
         }
-        for sel in selections:
+        selections = []
+        for s in all_selections:
+            if s["segment_id"] not in approved_ids:
+                continue
+            sel = dict(s)  # shallow copy — prevents mutating the parsed JSON dicts
             if sel.get("segment_id") in user_notes_by_id:
                 sel["user_notes"] = user_notes_by_id[sel["segment_id"]]
+            selections.append(sel)
     else:
-        selections = all_selections
+        selections = list(all_selections)  # copy so sort below doesn't mutate source
 
     if not selections:
         raise ValueError("No approved selections to export")
@@ -304,6 +304,12 @@ def generate_alternates_edl_from_project(
 
     if not alternates:
         return None
+
+    if not segments_dir.exists():
+        raise FileNotFoundError(
+            f"segments_dir not found: {segments_dir}. "
+            "Run stage 2 (transcribe) before generating alternates EDL."
+        )
 
     all_segments = []
     for seg_file in segments_dir.glob("*.json"):
