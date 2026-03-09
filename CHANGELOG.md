@@ -2,6 +2,39 @@
 
 All notable changes to Plotline will be documented in this file.
 
+## [0.3.7] - 2026-03-09
+
+Export pipeline and report template correctness fixes.
+
+### Fixed
+
+#### Export Pipeline (Audit Fixes 1-5)
+
+- **merge.py**: Propagate `delivery.raw` into enriched segments so `pause_before_sec`/`pause_after_sec` flow through to selections.json — smart handles were dead code without this
+- **fcpxml.py**: Add `_xa()` XML-escape helper and apply to all 8 dynamic attribute locations (theme names, speaker names, filenames, notes) — unescaped `&`, `"`, `<`, `>` produced malformed FCPXML
+- **edl.py, fcpxml.py**: Copy selection dicts before mutating with `user_notes` to avoid in-place source mutation
+- **edl.py, fcpxml.py**: Correct zero-pause handle logic — `pause==0` means contiguous speech with no gap, so handle must be `0.0` (was incorrectly falling through to default)
+- **edl.py**: Raise `FileNotFoundError` when `segments_dir` is missing before globbing for alternates
+
+#### Report Templates (Audit Fixes 1-6 + Performance)
+
+- **compare.py**: Normalize `key_messages` to `list[str]` before template — prevents dict repr rendering when brief has `{id, text}` objects
+- **summary.html**: Add `stat-card`/`stat-value`/`stat-label` CSS — cards were unstyled
+- **review.html**: Replace `{{ project_name }}` in JS with `reportData.project_name` — prevents localStorage key corruption from HTML entity escaping
+- **base.html**: Add `ml-1`, `ml-2`, `mr-1`, `mr-2` margin utility classes
+- **coverage.html**: Fix `gap.get('description', gap)` fallback to `''` — prevents dict repr if neither key exists
+- **review.html**: Move `focusSegment(0)` into `DOMContentLoaded` handler — prevents brief segment-0 highlight flash on deep-link navigation
+
+### Performance
+
+- **themes.py + themes.html**: Pass `segment_lookup` dict to template, replace O(n²) `selectattr` loop with O(1) dict lookup
+
+### Tests
+
+- **458 passed, 0 failed, 2 skipped** — 11 new tests (up from 447)
+  - `test_compare_report.py`: 5 integration tests for `generate_compare_report()`
+  - `test_themes_report.py`: 6 integration tests for `generate_themes_report()`
+
 ## [0.3.6] - 2026-03-08
 
 Enhanced EDL/FCPXML export for professional NLE workflows.
