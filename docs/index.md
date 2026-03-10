@@ -6,6 +6,7 @@ Welcome to the Plotline documentation. Plotline is an AI-assisted documentary ed
 
 - **[Local Setup Guide](local-setup.md)** — Step-by-step installation for Windows PC
 - **[PC Usage Guide](pc-usage-guide.md)** — Complete workflow instructions for PC users
+- **[API Setup Guide](api-setup-guide.md)** — API keys, tokens, and model configuration
 - **[Getting Started](getting-started.md)** — 5-minute quickstart to go from raw interviews to an EDL
 - **[README](../README.md)** — Full CLI reference and installation instructions
 
