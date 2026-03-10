@@ -30,12 +30,13 @@ jobs:
 
       - name: Fetch upstream
         run: |
-          git fetch origin main
+          git remote add upstream https://github.com/mwarf/plotline.git || true
+          git fetch upstream main
 
       - name: Check if updates exist
         id: check
         run: |
-          UPSTREAM_HASH=$(git rev-parse origin/main)
+          UPSTREAM_HASH=$(git rev-parse upstream/main)
           LOCAL_HASH=$(git rev-parse HEAD)
           if [ "$UPSTREAM_HASH" = "$LOCAL_HASH" ]; then
             echo "status=up-to-date"
@@ -50,7 +51,7 @@ jobs:
         if: steps.check.outputs.status == 'needs-update'
         run: |
           git checkout -b sync-upstream-temp
-          if git merge origin/main --no-edit; then
+          if git merge upstream/main --no-edit; then
             echo "merge-status=clean"
             echo "merge-status=clean" >> $GITHUB_OUTPUT
           else
@@ -89,14 +90,14 @@ jobs:
             const title = 'Upstream Sync: Manual Review Required';
             const body = `⚠️ **Conflict detected during automatic upstream merge**
 
-Updates from origin/main could not be merged automatically due to conflicts.
+Updates from mwarf/plotline could not be merged automatically due to conflicts.
 Please review the conflicts and merge manually.
 
 **Branch:** \`sync-upstream-temp\`
 
 ### What changed upstream:
-Please check the commits between your main and origin/main:
-https://github.com/${{ github.repository }}/compare/main...origin/main
+Please check the commits between your main and upstream/main:
+https://github.com/${{ github.repository }}/compare/main...upstream/main
 
 ### To resolve:
 1. Check out the \`sync-upstream-temp\` branch
@@ -131,11 +132,11 @@ https://github.com/${{ github.repository }}/compare/main...origin/main
         run: |
           echo "## Upstream Sync Summary" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.status }}" = "up-to-date" ]; then
-            echo "✅ Already up-to-date with origin/main" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Already up-to-date with upstream/main (mwarf/plotline)" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ steps.merge.outputs.merge-status }}" = "clean" ]; then
-            echo "✅ Successfully merged upstream updates" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Successfully merged upstream updates from mwarf/plotline" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Now on:** origin/main" >> $GITHUB_STEP_SUMMARY
+            echo "**Now on:** upstream/main" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ Conflicts detected - PR created for manual review" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
