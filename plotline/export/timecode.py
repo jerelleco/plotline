@@ -36,14 +36,15 @@ def seconds_to_df_timecode(seconds: float) -> str:
     Drop-frame skips frame numbers :00 and :01 at every minute mark
     except every 10th minute (00, 10, 20, 30, 40, 50).
 
+    Uses the exact NTSC rate 30000/1001 for frame counting.
+
     Args:
         seconds: Time in seconds
 
     Returns:
         Timecode string in HH:MM:SS;FF format (semicolon indicates drop-frame)
     """
-    fps = 29.97
-    frame_count = round(seconds * fps)
+    frame_count = round(seconds * 30000 / 1001)
 
     d = frame_count // 17982
     m = frame_count % 17982
@@ -99,6 +100,11 @@ def ndf_timecode_to_seconds(timecode: str, fps: float) -> float:
 def df_timecode_to_seconds(timecode: str) -> float:
     """Convert 29.97 drop-frame timecode to seconds.
 
+    Uses the SMPTE standard formula: compute the display frame number
+    as if counting at 30fps, then subtract the accumulated drop-frame
+    adjustments (2 frames per minute, except every 10th minute) across
+    all hours and minutes.
+
     Args:
         timecode: Timecode string in HH:MM:SS;FF format
 
@@ -108,9 +114,20 @@ def df_timecode_to_seconds(timecode: str) -> float:
     parts = timecode.replace(":", ";").split(";")
     hh, mm, ss, ff = int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3])
 
-    total_frames = hh * 108000 + mm * 1800 + ss * 30 + ff - 2 * (mm - mm // 10)
+    # Display frame number assuming 30fps NDF counting
+    display_frames = hh * 108000 + mm * 1800 + ss * 30 + ff
 
-    return total_frames / 29.97
+    # Total minutes across all hours
+    total_minutes = hh * 60 + mm
+
+    # Accumulated drop-frame adjustments: 2 per minute, except every 10th minute
+    drops = 2 * (total_minutes - total_minutes // 10)
+
+    # Actual frame count = display number minus dropped frame numbers
+    actual_frames = display_frames - drops
+
+    # Convert to seconds using exact NTSC rate (30000/1001)
+    return actual_frames * 1001 / 30000
 
 
 def timecode_to_seconds(timecode: str, fps: float) -> float:

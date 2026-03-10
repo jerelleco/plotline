@@ -203,7 +203,7 @@
     font-weight: 600;
 }
 
-.segment-score.high { color: var(--color-success); }
+.segment-score.filled { color: var(--color-success); }
 .segment-score.medium { color: var(--color-warning); }
 .segment-score.low { color: var(--color-error); }
 
@@ -414,7 +414,7 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
         <div class="filters">
             <button class="btn btn-secondary filter-btn active" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-filter="all" onclick="filterSegments('all')">All</button>
-            <button class="btn btn-secondary filter-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-filter="high" onclick="filterSegments('high')">High Score</button>
+            <button class="btn btn-secondary filter-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-filter="filled" onclick="filterSegments('filled')">High Score</button>
             <button class="btn btn-secondary filter-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" data-filter="low" onclick="filterSegments('low')">Low Score</button>
         </div>
         <input type="text" id="searchInput" placeholder="Search transcript..." style="padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); font-size: 0.75rem;" onkeyup="applySearch()">
@@ -498,7 +498,10 @@
         </div>
         <div class="segment-actions no-print">
             {% if segment.audio_path %}
-            <button class="btn btn-secondary btn-sm" onclick="playAudio('{{ segment.audio_path }}', '{{ segment.index }}', '{{ segment.text[:50] }}...')">
+            <button class="btn btn-secondary btn-sm play-btn"
+                data-audio="{{ segment.audio_path }}"
+                data-segment="{{ segment.index }}"
+                data-preview="{{ segment.text[:50] }}...">
                 ▶ Play
             </button>
             {% endif %}
@@ -635,10 +638,20 @@ function playAudio(path, segmentIndex, textPreview) {
     const info = document.getElementById('audioPlayerInfo');
 
     audio.src = path;
-    audio.play().catch(() => {});
+    audio.play().catch(function(err) {
+        info.textContent = 'Audio error: ' + err.message;
+    });
     player.classList.add('visible');
     info.textContent = '#' + segmentIndex + ': ' + textPreview;
 }
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.play-btn');
+    if (btn) {
+        e.stopPropagation();
+        playAudio(btn.dataset.audio, btn.dataset.segment, btn.dataset.preview);
+    }
+});
 
 function closeAudio() {
     const audio = document.getElementById('audioElement');
@@ -674,7 +687,7 @@ document.addEventListener('keydown', function(e) {
         e.preventDefault();
         const card = document.getElementById('segment-' + activeSegmentIndex);
         if (card) {
-            const btn = card.querySelector('.btn');
+            const btn = card.querySelector('.play-btn');
             if (btn) btn.click();
         }
     }

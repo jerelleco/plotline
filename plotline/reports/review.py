@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from plotline.export.timecode import seconds_to_timecode
-from plotline.project import read_json
+from plotline.io import read_json
 from plotline.reports.generator import ReportGenerator
 from plotline.utils import format_duration, get_delivery_class
 
@@ -101,7 +101,11 @@ def generate_review(
     approvals = {}
     if approvals_path.exists():
         approvals_data = read_json(approvals_path)
-        approvals = {s["segment_id"]: s["status"] for s in approvals_data.get("segments", [])}
+        approvals = {
+            s.get("segment_id"): s["status"]
+            for s in approvals_data.get("segments", [])
+            if s.get("segment_id")
+        }
 
     interviews_map = {}
     for interview in manifest.get("interviews", []):
@@ -169,6 +173,7 @@ def generate_review(
         segments_data.append(
             {
                 "id": segment_id,
+                "interview_id": interview_id,
                 "position": position,
                 "role": segment.get("role", "body").title(),
                 "text": segment.get("text", ""),

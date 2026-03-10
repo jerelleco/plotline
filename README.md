@@ -15,6 +15,39 @@ Plotline analyzes interview footage to identify the most compelling moments and 
 Video Interview → Audio → Transcript → Delivery Analysis → LLM Themes → Narrative Arc → EDL/FCPXML
 ```
 
+## Workflow at a Glance
+
+### Traditional vs Plotline
+
+```mermaid
+flowchart LR
+    subgraph Traditional
+        T1[Watch all footage] --> T2[Transcribe manually]
+        T2 --> T3[Find themes]
+        T3 --> T4[Select & assemble]
+        T4 --> T5[Iterate]
+        T5 --> T6[Export]
+    end
+    
+    subgraph Plotline
+        P1[Add footage] --> P2[plotline run]
+        P2 --> P3[Review: Approve/Reject]
+        P3 --> P4[Export]
+    end
+    
+    style T1 fill:#fecaca
+    style T2 fill:#fecaca
+    style T3 fill:#fecaca
+    style T4 fill:#fecaca
+    style T5 fill:#fecaca
+    style P2 fill:#bbf7d0
+    style P3 fill:#fef3c7
+```
+
+**Time savings:** ~85% reduction in editing time for 10+ hours of footage.
+
+See [Workflow Diagrams](docs/workflow-diagram.md) for detailed comparisons, AI vs human responsibilities, and data flow architecture.
+
 ## Installation
 
 ```bash
@@ -109,12 +142,13 @@ plotline export --format edl
 
 ### Export
 
-| Command                           | Description                            |
-| --------------------------------- | -------------------------------------- |
-| `plotline export --format edl`    | Export CMX 3600 EDL                    |
-| `plotline export --format fcpxml` | Export FCPXML 1.11                     |
-| `plotline export --all`           | Export all segments (ignore approvals) |
-| `plotline export --handle 24`     | Custom handle padding (frames)         |
+| Command                              | Description                                         |
+| ------------------------------------ | --------------------------------------------------- |
+| `plotline export --format edl`       | Export CMX 3600 EDL                                 |
+| `plotline export --format fcpxml`    | Export FCPXML 1.11 with chapter markers             |
+| `plotline export --all`              | Export all segments (ignore approvals)              |
+| `plotline export --handle 24`        | Custom handle padding (frames)                      |
+| `plotline export --alternates`       | Export alternate candidates as secondary timeline   |
 
 ### Other
 
@@ -137,10 +171,14 @@ plotline extract
 
 ### 2. Transcription
 
-Transcribes audio using mlx-whisper (Apple Silicon) or faster-whisper.
+Transcribes audio using mlx-whisper (Apple Silicon) or faster-whisper. Language is auto-detected by Whisper and carried through the pipeline.
 
 ```bash
-plotline transcribe --model medium --language en
+# Auto-detect language (recommended)
+plotline transcribe
+
+# Or specify explicitly
+plotline transcribe --model medium --language es
 ```
 
 ### 3. Delivery Analysis
@@ -178,22 +216,47 @@ Four-pass LLM analysis:
 
 Pass 4 runs automatically in `plotline run` when `cultural_flags: true` is set in config. It can also be run standalone with `plotline flags` (use `--force` to run even when disabled in config).
 
-### 5.5. Speaker Diarization (Optional)
+### 5.5. Speaker Diarization & Filtering (Optional)
 
-Identify speakers in interview audio using pyannote.audio:
+Identify and filter speakers in interview audio:
 
 ```bash
 # Install diarization dependencies
 pip install plotline[diarization]
 
-# Run diarization after transcription
-plotline diarize
+# Run pipeline (auto-stops after diarization)
+plotline run
 
-# View detected speakers
-plotline speakers --list
+# Output:
+# ✓ Extracted audio
+# ✓ Transcribed 3 interviews
+# ✓ Diarized 3 interviews (2 speakers detected)
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Diarization complete. Configure speakers before LLM analysis.
+#
+# Run 'plotline speakers --preview' to identify who is who
+# Then run 'plotline run' to continue
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Edit speaker names (opens speakers.yaml in editor)
-plotline speakers --edit
+# Preview speakers with AI heuristics
+plotline speakers --preview
+
+# Output:
+# ┌─────────────┬──────────┬──────────┬─────────────────────────────────┬───────────┐
+# │ ID          │ Segments │ Duration │ Heuristic                       │ Suggested │
+# ├─────────────┼──────────┼──────────┼─────────────────────────────────┼───────────┤
+# │ SPEAKER_00  │ 45       │ 12.3 min  │ Likely INTERVIEWER (asks       │ Exclude? Y │
+# │             │          │          │ many questions, short segments)│           │
+# │ SPEAKER_01  │ 89       │ 34.7 min  │ Likely SUBJECT                  │ Exclude? N │
+# └─────────────┴──────────┴──────────┴─────────────────────────────────┴───────────┘
+
+# Configure speakers (exclude interviewer)
+plotline speakers SPEAKER_00 --name "Host" --role interviewer --exclude
+plotline speakers SPEAKER_01 --name "Jane Doe" --role subject --include
+
+# Continue pipeline (filtered speakers only)
+plotline run
 ```
 
 **Requirements:**
@@ -211,28 +274,89 @@ diarization_min_speakers: 2
 diarization_max_speakers: 5
 ```
 
-**Speaker names (`speakers.yaml`):**
+**Speaker configuration (`speakers.yaml`):**
 ```yaml
 speakers:
   SPEAKER_00:
-    name: "Interviewer"
+    name: "Host"
     color: "#3B82F6"
+    role: "interviewer"        # interviewer, subject, or unknown
+    include_in_edl: false      # Exclude from timeline
   SPEAKER_01:
     name: "Jane Doe"
     color: "#10B981"
+    role: "subject"
+    include_in_edl: true       # Include in timeline
 ```
 
-Speaker labels appear in:
+**Speaker labels appear in:**
 - LLM prompts (themes, synthesis, arc)
 - Review and transcript reports
 - EDL/FCPXML exports (as comments/keywords)
+
+**How filtering works:**
+- Excluded speakers are filtered at the enrich stage
+- Filtered segments never enter LLM analysis
+- This saves LLM tokens and processing time
+- Re-run `plotline enrich --force` after changing speaker config
 
 ### 6. Export
 
 Generate timeline files for NLEs:
 
 - **EDL** — CMX 3600 format for DaVinci Resolve, Premiere Pro
-- **FCPXML** — Final Cut Pro XML with markers, keywords, metadata
+- **FCPXML** — Final Cut Pro XML with markers, keywords, chapter markers, metadata
+
+#### Handles
+
+Handles are padding added before and after each clip to give editors room for transitions. Default is 12 frames (0.5s at 24fps).
+
+```bash
+plotline export --handle 24  # 1 second at 24fps
+```
+
+#### Smart Handles
+
+Plotline automatically reduces handles when natural pauses are short. If a segment has only 0.2s of silence before it, the handle is reduced instead of cutting into the next speaker. This prevents dialogue overlap in tight edits.
+
+#### Chapter Markers (FCPXML)
+
+FCPXML exports include chapter markers at narrative role transitions (Hook → Body → Climax → Resolution), making it easy to navigate story structure in Final Cut Pro.
+
+#### Alternate Candidates
+
+Export all alternate takes as a secondary timeline for easy comparison:
+
+```bash
+plotline export --alternates
+```
+
+This generates `{project}_alternates.edl` with segments grouped by position, so you can copy/paste between timelines to swap takes.
+
+## Language Support
+
+Plotline supports non-English footage out of the box. Language is auto-detected by Whisper during transcription and carried through the entire pipeline.
+
+**How it works:**
+
+1. Whisper detects the spoken language during transcription
+2. The detected language is stored on each interview in the manifest
+3. All LLM prompts receive a bilingual instruction: English structural instructions with output (themes, summaries, narrative text) in the detected language
+4. English projects get no extra instruction — zero overhead
+
+**Supported languages:** Spanish, French, Portuguese, German, Italian, Japanese, Korean, Chinese, Arabic, Hindi, Russian, Dutch, Swedish, Norwegian, Danish, Finnish, Polish, Turkish, Thai, Vietnamese, Indonesian, Malay, and any other language Whisper can detect.
+
+**Usage:**
+
+```bash
+# Auto-detect (recommended) — works for any language
+plotline run
+
+# Or specify language explicitly
+plotline transcribe --language es
+```
+
+No additional configuration is needed. If all interviews are in the same language, LLM passes automatically output in that language. For mixed-language projects, the most common language is used.
 
 ## Configuration
 
@@ -250,6 +374,7 @@ privacy_mode: local
 # Whisper settings
 whisper_backend: mlx
 whisper_model: medium
+# whisper_language: es  # Optional — auto-detected if omitted
 
 # Output settings
 target_duration_seconds: 600
@@ -561,6 +686,26 @@ ruff check plotline/
 # Type check
 pyright plotline/
 ```
+
+## Documentation
+
+- **[Getting Started](docs/getting-started.md)** — 5-minute quickstart
+- **[Workflow Guide](docs/workflow-guide.md)** — End-to-end tutorial
+- **[Export Guide](docs/export-guide.md)** — NLE export workflows, handles, alternates
+- **[Reports Guide](docs/reports-guide.md)** — HTML reports and keyboard shortcuts
+- **[Creative Briefs](docs/creative-brief.md)** — Guide LLM analysis with your goals
+- **[FAQ](docs/FAQ.md)** — Common questions and solutions
+- **[Documentation Index](docs/index.md)** — All guides and references
+
+## What's New in v0.3.6
+
+- **Smart Handles**: Handles automatically reduce when natural pauses are short
+- **Chapter Markers**: FCPXML exports include chapter markers at role transitions
+- **Alternates Export**: New `--alternates` flag for comparing takes in your NLE
+- **Full Theme Export**: All themes now exported to FCPXML (previously truncated to 3)
+- **User Notes Export**: Review notes now included in EDL/FCPXML exports
+
+See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
 ## License
 

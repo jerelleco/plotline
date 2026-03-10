@@ -19,10 +19,10 @@ class TestGetStageStatus:
         stages = {
             "extracted": True,
             "transcribed": True,
+            "diarized": True,
             "analyzed": True,
             "enriched": True,
             "themes": True,
-            "reviewed": True,
         }
         result = get_stage_status(stages)
         assert len(result) == 6
@@ -44,12 +44,19 @@ class TestGetStageStatus:
     def test_stage_order_preserved(self) -> None:
         result = get_stage_status({})
         keys = [s["key"] for s in result]
-        assert keys == ["extracted", "transcribed", "analyzed", "enriched", "themes", "reviewed"]
+        assert keys == [
+            "extracted",
+            "transcribed",
+            "diarized",
+            "analyzed",
+            "enriched",
+            "themes",
+        ]
 
     def test_stage_initials(self) -> None:
         result = get_stage_status({})
         initials = [s["initial"] for s in result]
-        assert initials == ["Ext", "Trn", "Ana", "Enr", "Thm", "Rev"]
+        assert initials == ["Ext", "Trn", "Dia", "Ana", "Enr", "Thm"]
 
 
 class TestCountCompletedStages:

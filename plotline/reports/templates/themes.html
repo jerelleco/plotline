@@ -436,7 +436,7 @@ align-items: stretch;
             </div>
         </div>
         {% for theme in themes %}
-        <div class="theme-nav-item" id="{{ theme.id }}" data-theme="{{ theme.name }}" onclick="filterByTheme('{{ theme.name | e }}')">
+        <div class="theme-nav-item" id="{{ theme.id }}" data-theme="{{ theme.name }}" onclick="filterByTheme(this.dataset.theme)">
             <div class="theme-color-dot" style="background: {{ theme.color }}"></div>
             <div class="theme-nav-info">
                 <div class="theme-nav-name" title="{{ theme.name }}">{{ theme.name }}</div>
@@ -509,7 +509,7 @@ align-items: stretch;
                 {% endif %}
 
                 {% for seg_id in theme.segment_ids %}
-                {% set seg = data.segments | selectattr("id", "equalto", seg_id) | first %}
+                {% set seg = segment_lookup.get(seg_id) %}
                 {% if seg %}
                 <div class="segment-card" data-segment-id="{{ seg.id }}" data-interview="{{ seg.interview_id }}"
                     data-score="{{ seg.delivery_score }}" data-start="{{ seg.start }}"
@@ -532,7 +532,8 @@ align-items: stretch;
                         <div class="segment-themes">
                             {% for theme_name in seg.themes %}
                             <span class="theme-pill" style="background: {{ seg.theme_colors[loop.index0] }}"
-                                onclick="event.stopPropagation(); filterByTheme('{{ theme_name | e }}')">{{ theme_name
+                                data-theme-name="{{ theme_name }}"
+                                onclick="event.stopPropagation(); filterByTheme(this.dataset.themeName)">{{ theme_name
                                 }}</span>
                             {% endfor %}
                         </div>
@@ -543,8 +544,10 @@ align-items: stretch;
                                 📝 Transcript
                             </button>
                             {% if seg.audio_path %}
-                            <button class="btn btn-secondary btn-sm"
-                                onclick="event.stopPropagation(); playAudio('{{ seg.audio_path }}', '{{ seg.interview_id }}', '{{ seg.text[:40] }}...')">
+                            <button class="btn btn-secondary btn-sm play-btn"
+                                data-audio="{{ seg.audio_path }}"
+                                data-interview="{{ seg.interview_id }}"
+                                data-preview="{{ seg.text[:40] }}...">
                                 ▶ Play
                             </button>
                             {% endif %}
@@ -671,10 +674,20 @@ const audio = document.getElementById('audioElement');
 const player = document.getElementById('audioPlayer');
 const info = document.getElementById('audioPlayerInfo');
 audio.src = path;
-audio.play().catch(() => {});
+audio.play().catch(function(err) {
+    info.textContent = 'Audio error: ' + err.message;
+});
 player.classList.add('visible');
 info.textContent = interviewId + ': ' + textPreview;
 }
+
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.play-btn');
+    if (btn) {
+        e.stopPropagation();
+        playAudio(btn.dataset.audio, btn.dataset.interview, btn.dataset.preview);
+    }
+});
 
 function closeAudio() {
 const audio = document.getElementById('audioElement');

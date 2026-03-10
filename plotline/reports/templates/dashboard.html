@@ -160,10 +160,9 @@ const stageCommands = {
 'transcribed': { next: 'analyze', cmd: 'plotline analyze' },
 'analyzed': { next: 'enrich', cmd: 'plotline enrich' },
 'enriched': { next: 'themes', cmd: 'plotline themes' },
-'themes': { next: 'review', cmd: 'plotline run' },
-'reviewed': { next: null, cmd: 'plotline export --format edl' }
+'themes': { next: null, cmd: 'plotline run' },
 };
-const stageOrder = ['extracted', 'transcribed', 'analyzed', 'enriched', 'themes', 'reviewed'];
+const stageOrder = ['extracted', 'transcribed', 'analyzed', 'enriched', 'themes'];
 
 let nextCmd = 'plotline run';
 const interviews = reportData.interviews || [];
@@ -183,14 +182,13 @@ alert('All stages complete! Run:\n\n ' + nextCmd);
 
 // Set initial button label based on data
 (function() {
-const stageOrder = ['extracted', 'transcribed', 'analyzed', 'enriched', 'themes', 'reviewed'];
+const stageOrder = ['extracted', 'transcribed', 'analyzed', 'enriched', 'themes'];
 const stageLabels = {
 'extracted': 'Transcribe',
 'transcribed': 'Analyze',
 'analyzed': 'Enrich',
 'enriched': 'Run Themes',
 'themes': 'Run Pipeline',
-'reviewed': 'Export'
 };
 const interviews = reportData.interviews || [];
 for (const interview of interviews) {

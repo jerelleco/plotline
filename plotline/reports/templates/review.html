@@ -9,7 +9,7 @@ all var(--transition-fast); border-left: 4px solid transparent; }
 .segment-card:hover { border-color: var(--color-border-light); }
 .segment-card.focused { border-color: var(--color-accent-primary); box-shadow: 0
 0 0 2px rgba(59, 130, 246, 0.2); } .segment-card.approved { border-left-color:
-var(--color-success); } .segment-card.rejected { opacity: 0.5; order: 999; }
+var(--color-success); } .segment-card.rejected { opacity: 0.5; }
 .segment-card.flagged { border-left-color: var(--color-warning); }
 .segment-header { display: flex; justify-content: space-between; align-items:
 flex-start; margin-bottom: 0.75rem; } .segment-role { display: inline-flex;
@@ -81,7 +81,7 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
 <div class="review-container">
   <div class="timeline" id="timeline">
     {% for segment in segments %}
-    <div class="segment-card" id="segment-{{ segment.id }}" data-id="{{ segment.id }}" data-status="{{ segment.status }}" draggable="true"
+    <div class="segment-card" id="segment-{{ segment.id }}" data-id="{{ segment.id }}" data-status="{{ segment.status }}" {% if segment.culturally_flagged %}data-culturally-flagged="true"{% endif %} {% if segment.audio_path %}data-audio="{{ segment.audio_path }}"{% endif %} draggable="true"
       tabindex="0">
       <div class="segment-header">
         <div>
@@ -139,6 +139,13 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
         <textarea class="user-notes-input" id="notes-{{ segment.id }}" placeholder="Add your editorial notes here..." style="width: 100%; min-height: 60px; padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-bg-primary); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 0.875rem; resize: vertical;" onblur="saveApprovals()"></textarea>
       </div>
       <div class="segment-actions no-print">
+        {% if segment.audio_path %}
+        <button class="btn btn-secondary btn-sm play-btn"
+            data-audio="{{ segment.audio_path }}"
+            data-label="{{ segment.timecode }} - {{ segment.text[:50] }}...">
+            ▶ Play
+        </button>
+        {% endif %}
         <button class="btn btn-success btn-sm" onclick="setStatus('{{ segment.id }}', 'approved')">
           ✓ Approve (A)
         </button>
@@ -199,7 +206,7 @@ scale(0.98); } .drag-over { border-top: 2px solid var(--color-accent-primary); }
         <button class="btn btn-secondary delivery-filter-btn active" data-delivery="all" onclick="filterDelivery('all')">
           All
         </button>
-        <button class="btn btn-secondary delivery-filter-btn" data-delivery="high" onclick="filterDelivery('high')">
+        <button class="btn btn-secondary delivery-filter-btn" data-delivery="filled" onclick="filterDelivery('filled')">
           High
         </button>
         <button class="btn btn-secondary delivery-filter-btn" data-delivery="medium" onclick="filterDelivery('medium')">
@@ -253,7 +260,7 @@ const audioSource = document.getElementById('audioSource');
 // Restore any previously saved approvals from localStorage
 (function restoreApprovals() {
 try {
-const saved = localStorage.getItem('plotline_approvals_{{ project_name }}');
+const saved = localStorage.getItem('plotline_approvals_' + reportData.project_name);
 if (!saved) return;
 const data = JSON.parse(saved);
 (data.segments || []).forEach(entry => {
@@ -287,15 +294,19 @@ function toggleNotes(id) {
   }
 }
 
+let hasAudioLoaded = false;
+
 function focusSegment(index) {
 segments.forEach((s, i) => { s.classList.toggle('focused', i === index); });
 currentIndex = index;
 segments[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
 segments[index].focus();
-const segmentData = reportData.segments[index];
-if (segmentData && segmentData.audio_path) {
-audio.src = segmentData.audio_path;
-audioSource.textContent = segmentData.timecode + ' - ' + segmentData.text.substring(0, 50);
+const card = segments[index];
+const audioPath = card.dataset.audio;
+if (audioPath) {
+audio.src = audioPath;
+hasAudioLoaded = true;
+audioSource.textContent = (card.querySelector('.segment-timecode')?.textContent || '') + ' - ' + (card.querySelector('.segment-text')?.textContent || '').substring(0, 50);
 audioPlayer.style.display = 'block';
 }
 }
@@ -341,7 +352,7 @@ const notes = (s.querySelector('.segment-notes')?.textContent || '').toLowerCase
 const firstBar = s.querySelector('.delivery-bar-segment');
 let deliveryClass = 'medium';
 if (firstBar) {
-    if (firstBar.classList.contains('high')) deliveryClass = 'high';
+    if (firstBar.classList.contains('filled')) deliveryClass = 'filled';
     else if (firstBar.classList.contains('low')) deliveryClass = 'low';
 }
 
@@ -409,7 +420,7 @@ custom_order: customOrder
 function saveApprovals() {
 const payload = buildApprovalsPayload();
 try {
-localStorage.setItem('plotline_approvals_{{ project_name }}', JSON.stringify(payload));
+localStorage.setItem('plotline_approvals_' + reportData.project_name, JSON.stringify(payload));
 } catch(e) {}
 }
 
@@ -448,8 +459,7 @@ function secondsToNDFTimecode(seconds, fps) {
 }
 
 function secondsToDFTimecode(seconds) {
-    const fps = 29.97;
-    const frameCount = Math.round(seconds * fps);
+    const frameCount = Math.round(seconds * 30000 / 1001);
     const d = Math.floor(frameCount / 17982);
     const m = frameCount % 17982;
     let adjustment = 0;
@@ -475,19 +485,62 @@ function isDropFrameFPS(fps) {
     return Math.abs(fps - 29.97) < 0.01;
 }
 
+function dfTimecodeToSeconds(timecode) {
+    const parts = timecode.replace(/:/g, ';').split(';');
+    const hh = parseInt(parts[0]), mm = parseInt(parts[1]);
+    const ss = parseInt(parts[2]), ff = parseInt(parts[3]);
+    const displayFrames = hh * 108000 + mm * 1800 + ss * 30 + ff;
+    const totalMinutes = hh * 60 + mm;
+    const drops = 2 * (totalMinutes - Math.floor(totalMinutes / 10));
+    const actualFrames = displayFrames - drops;
+    return actualFrames * 1001 / 30000;
+}
+
+function timecodeToSeconds(timecode, fps) {
+    const isDF = timecode.includes(';');
+    if (isDF) return dfTimecodeToSeconds(timecode);
+    const parts = timecode.replace(/;/g, ':').split(':');
+    const hh = parseInt(parts[0]), mm = parseInt(parts[1]);
+    const ss = parseInt(parts[2]), ff = parseInt(parts[3]);
+    const totalFrames = (hh * 3600 + mm * 60 + ss) * Math.round(fps) + ff;
+    return totalFrames / fps;
+}
+
 // EDL Generator
+function makeReelName(filename, usedReels, counter) {
+    var stem = filename.replace(/\.[^.]+$/, '');
+    var clean = stem.replace(/[^A-Za-z0-9_]/g, '') || ('Reel' + String(counter).padStart(4, '0'));
+    var candidate = clean.substring(0, 8);
+    if (!usedReels.has(candidate)) return candidate;
+    for (var i = 1; i < 10; i++) {
+        candidate = clean.substring(0, 7) + String(i);
+        if (!usedReels.has(candidate)) return candidate;
+    }
+    for (var j = 10; j < 100; j++) {
+        candidate = (clean.substring(0, 6) + String(j).padStart(2, '0')).substring(0, 8);
+        if (!usedReels.has(candidate)) return candidate;
+    }
+    return ('R' + String(counter).padStart(7, '0')).substring(0, 8);
+}
+
 function generateEDL(approvals, interviews, handleFrames, projectName) {
     const lines = [];
     
     let fps = 24;
     let dropFrame = false;
+    const fpsCounts = {};
     approvals.forEach(sel => {
         const interview = interviews[sel.interview_id];
         if (interview) {
-            fps = interview.frame_rate || 24;
-            if (isDropFrameFPS(fps)) dropFrame = true;
+            const selFps = interview.frame_rate || 24;
+            fpsCounts[selFps] = (fpsCounts[selFps] || 0) + 1;
+            if (isDropFrameFPS(selFps)) dropFrame = true;
         }
     });
+    const fpsKeys = Object.keys(fpsCounts);
+    if (fpsKeys.length > 0) {
+        fps = Number(fpsKeys.sort((a, b) => fpsCounts[b] - fpsCounts[a])[0]);
+    }
     
     const fcm = dropFrame ? "DROP FRAME" : "NON-DROP FRAME";
     lines.push(`TITLE: Plotline Selects - ${projectName}`);
@@ -495,12 +548,16 @@ function generateEDL(approvals, interviews, handleFrames, projectName) {
     lines.push("");
     
     const reelMapping = {};
+    const usedReels = new Set();
     let reelCounter = 1;
     approvals.forEach(sel => {
         const interviewId = sel.interview_id;
         if (!(interviewId in reelMapping)) {
-            const reelName = interviewId.length >= 8 ? interviewId.substring(0, 8) : `R${String(reelCounter).padStart(3,'0')}`;
+            const interview = interviews[interviewId];
+            const filename = interview ? interview.filename : interviewId;
+            const reelName = makeReelName(filename, usedReels, reelCounter);
             reelMapping[interviewId] = reelName;
+            usedReels.add(reelName);
             reelCounter++;
         }
     });
@@ -512,6 +569,12 @@ function generateEDL(approvals, interviews, handleFrames, projectName) {
             const filename = interview ? interview.filename : interviewId;
             lines.push(`* ${reelName} = ${filename}`);
         }
+        lines.push("");
+    }
+    
+    if (fpsKeys.length > 1) {
+        const rates = fpsKeys.map(Number).sort((a, b) => a - b).join(', ');
+        lines.push(`* WARNING: Mixed frame rates detected (${rates}). Record track uses ${fps}fps.`);
         lines.push("");
     }
     
@@ -529,15 +592,14 @@ function generateEDL(approvals, interviews, handleFrames, projectName) {
         
         const handleSec = handleFrames / interviewFps;
         let paddedStart = Math.max(0, srcStart - handleSec);
-        const interviewDuration = interview.duration_seconds || srcEnd;
-        let paddedEnd = Math.min(interviewDuration, srcEnd + handleSec);
+        let paddedEnd = srcEnd + handleSec;
+        if (interview.duration_seconds != null) {
+            paddedEnd = Math.min(interview.duration_seconds, paddedEnd);
+        }
         
         let offsetSeconds = 0;
         if (interview.start_timecode) {
-            const parts = interview.start_timecode.replace(';', ':').split(':');
-            if (parts.length === 4) {
-                offsetSeconds = (parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2])) + parseInt(parts[3]) / interviewFps;
-            }
+            offsetSeconds = timecodeToSeconds(interview.start_timecode, interviewFps);
         }
         
         const absoluteStart = offsetSeconds + paddedStart;
@@ -560,6 +622,7 @@ function generateEDL(approvals, interviews, handleFrames, projectName) {
         
         const filename = interview.filename || "unknown.mov";
         lines.push(`* FROM CLIP NAME: ${filename}`);
+        lines.push(`* SOURCE FILE: ${filename}`);
         
         if (sel.speaker) {
             lines.push(`* SPEAKER: ${sel.speaker}`);
@@ -601,8 +664,8 @@ function exportApproved() {
     }
     
     try {
-        localStorage.setItem('plotline_approvals_{{ project_name }}', JSON.stringify(payload));
-    } catch(e) {}
+localStorage.setItem('plotline_approvals_' + reportData.project_name, JSON.stringify(payload));
+} catch(e) {}
     
     if (format === 'edl') {
         const approvalsWithMeta = payload.segments
@@ -610,7 +673,7 @@ function exportApproved() {
             .map(entry => {
                 const segData = reportData.segments.find(s => s.id === entry.segment_id);
                 if (!segData) return null;
-                const interviewId = segData.id.split('_seg_')[0];
+                const interviewId = segData.interview_id || segData.id.split('_seg_')[0];
                 return {
                     segment_id: entry.segment_id,
                     interview_id: interviewId,
@@ -655,11 +718,27 @@ case 'ArrowDown': e.preventDefault(); if (currentIndex < segments.length - 1) fo
   case 'a': case 'A': if (id) setStatus(id, 'approved'); break;
   case 'x': case 'X': if (id) setStatus(id, 'rejected'); break;
   case 'f': case 'F': if (id) setStatus(id, 'flagged'); break;
-  case ' ': e.preventDefault(); if (audio.src) { audio.paused ? audio.play() : audio.pause(); } break;
+  case ' ': e.preventDefault(); if (hasAudioLoaded) { audio.paused ? audio.play().catch(function(err) { audioSource.textContent = 'Audio error: ' + err.message; }) : audio.pause(); } break;
   }
   });
 
   segments.forEach((s, i) => { s.addEventListener('click', () => focusSegment(i)); });
+
+  document.addEventListener('click', function(e) {
+      var btn = e.target.closest('.play-btn');
+      if (btn) {
+          e.stopPropagation();
+          var path = btn.dataset.audio;
+          var label = btn.dataset.label;
+          if (path) {
+              audio.src = path;
+              hasAudioLoaded = true;
+              audio.play().catch(function(err) { audioSource.textContent = 'Audio error: ' + err.message; });
+              audioSource.textContent = label || '';
+              audioPlayer.style.display = 'block';
+          }
+      }
+  });
 
   // Drag and drop functionality
   let draggedCard = null;
@@ -720,7 +799,8 @@ case 'ArrowDown': e.preventDefault(); if (currentIndex < segments.length - 1) fo
       });
   });
 
-  // Handle deep links
+  // Handle deep links and initial focus in a single DOMContentLoaded handler
+  // so that focusSegment(0) never fires before a deep-link target is resolved.
   window.addEventListener('DOMContentLoaded', () => {
     if (window.location.hash) {
       const hash = window.location.hash.substring(1);
@@ -734,10 +814,11 @@ case 'ArrowDown': e.preventDefault(); if (currentIndex < segments.length - 1) fo
           }
         }
       }
+    } else if (segments.length > 0) {
+      focusSegment(0);
     }
   });
 
   updateSummary();
-  if (segments.length > 0 && !window.location.hash) { focusSegment(0); }
 
   {% endblock %}

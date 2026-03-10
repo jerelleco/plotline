@@ -18,6 +18,7 @@ def build_narrative_arc(
     template_manager: Any,
     config: Any,
     brief: dict[str, Any] | None = None,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Build narrative arc from synthesis and segments.
@@ -29,17 +30,19 @@ def build_narrative_arc(
         template_manager: PromptTemplateManager instance
         config: PlotlineConfig instance
         brief: Optional creative brief dict
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
         Arc dict with ordered segments
     """
     from plotline.llm.parsing import parse_llm_json, validate_arc_response
-    from plotline.llm.templates import format_synthesis_for_prompt
+    from plotline.llm.templates import build_language_instruction, format_synthesis_for_prompt
 
     segments_by_id = {}
     for seg in all_segments:
-        segments_by_id[seg["segment_id"]] = seg
+        if "segment_id" in seg:
+            segments_by_id[seg["segment_id"]] = seg
 
     top_segments = sorted(
         all_segments,
@@ -60,6 +63,10 @@ def build_narrative_arc(
         "INTERVIEW_COUNT": len(set(s.get("interview_id", "") for s in all_segments)),
     }
 
+    lang_instruction = build_language_instruction(language)
+    if lang_instruction:
+        variables["LANGUAGE_INSTRUCTION"] = lang_instruction
+
     if brief:
         variables["NARRATIVE_BRIEF"] = template_manager.format_brief_for_prompt(brief)
 
@@ -73,11 +80,16 @@ def build_narrative_arc(
     data = parse_llm_json(response)
     validated = validate_arc_response(data, target_duration)
 
-    return {
+    result = {
         "built_at": datetime.now().isoformat(timespec="seconds"),
         "llm_model": client.model,
         **validated,
     }
+
+    if brief:
+        result["brief_modified_at"] = brief.get("modified_at")
+
+    return result
 
 
 def create_selections_from_arc(
@@ -97,18 +109,23 @@ def create_selections_from_arc(
     """
     segments_by_id = {}
     for seg in all_segments:
-        segments_by_id[seg["segment_id"]] = seg
+        if "segment_id" in seg:
+            segments_by_id[seg["segment_id"]] = seg
 
     selections = []
     total_duration = 0
 
     for arc_item in arc.get("arc", []):
-        segment_id = arc_item["segment_id"]
+        segment_id = arc_item.get("segment_id")
+        if not segment_id:
+            continue
         source_seg = segments_by_id.get(segment_id, {})
 
         duration = source_seg.get("end", 0) - source_seg.get("start", 0)
         total_duration += duration
 
+        delivery = source_seg.get("delivery", {})
+        raw_delivery = delivery.get("raw", {})
         selection = {
             "segment_id": segment_id,
             "interview_id": arc_item.get("interview_id", source_seg.get("interview_id", "")),
@@ -119,8 +136,10 @@ def create_selections_from_arc(
             "speaker": source_seg.get("speaker"),
             "role": arc_item.get("role", ""),
             "themes": arc_item.get("themes", []),
-            "composite_score": source_seg.get("delivery", {}).get("composite_score", 0),
-            "delivery_label": source_seg.get("delivery", {}).get("delivery_label", ""),
+            "composite_score": delivery.get("composite_score", 0),
+            "delivery_label": delivery.get("delivery_label", ""),
+            "pause_before_sec": raw_delivery.get("pause_before_sec", 0),
+            "pause_after_sec": raw_delivery.get("pause_after_sec", 0),
             "editorial_notes": arc_item.get("editorial_notes", ""),
             "pacing": arc_item.get("pacing", ""),
             "brief_message": arc_item.get("brief_message"),
@@ -146,6 +165,7 @@ def run_arc_construction(
     template_manager: Any,
     config: Any,
     force: bool = False,
+    language: str | None = None,
     console=None,
 ) -> dict[str, Any]:
     """Run narrative arc construction.
@@ -157,12 +177,13 @@ def run_arc_construction(
         template_manager: PromptTemplateManager instance
         config: PlotlineConfig instance
         force: Re-run even if already done
+        language: ISO 639-1 language code for non-English transcripts
         console: Optional rich console for output
 
     Returns:
         Dict with arc results
     """
-    from plotline.project import read_json, write_json
+    from plotline.io import read_json, write_json
 
     data_dir = project_path / "data"
     segments_dir = data_dir / "segments"
@@ -174,6 +195,9 @@ def run_arc_construction(
     brief_path = project_path / "brief.json"
     if brief_path.exists():
         brief = read_json(brief_path)
+        brief["modified_at"] = datetime.fromtimestamp(brief_path.stat().st_mtime).isoformat(
+            timespec="seconds"
+        )
 
     if not synthesis_path.exists():
         if console:
@@ -207,6 +231,7 @@ def run_arc_construction(
         template_manager=template_manager,
         config=config,
         brief=brief,
+        language=language,
         console=console,
     )
 

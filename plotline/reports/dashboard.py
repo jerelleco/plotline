@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from plotline.project import read_json
+from plotline.io import read_json
 from plotline.reports.generator import ReportGenerator
 from plotline.utils import format_duration_friendly as format_duration
 
@@ -19,10 +19,10 @@ def get_stage_status(stages: dict[str, bool]) -> list[dict[str, Any]]:
     stage_order = [
         ("extracted", "Ext", "Extraction"),
         ("transcribed", "Trn", "Transcription"),
+        ("diarized", "Dia", "Diarization"),
         ("analyzed", "Ana", "Analysis"),
         ("enriched", "Enr", "Enrichment"),
         ("themes", "Thm", "Themes"),
-        ("reviewed", "Rev", "Review"),
     ]
 
     result = []

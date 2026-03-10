@@ -210,7 +210,7 @@ def score_all_interviews(
     """
     from rich.table import Table
 
-    from plotline.project import read_json, write_json
+    from plotline.io import read_json, write_json
 
     data_dir = project_path / "data"
     delivery_dir = data_dir / "delivery"

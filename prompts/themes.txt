@@ -1,4 +1,8 @@
 You are an experienced documentary editor reviewing a single interview transcript. Your task is to identify the major themes, recurring ideas, and emotional threads in this interview.
+{% if LANGUAGE_INSTRUCTION %}
+
+{{LANGUAGE_INSTRUCTION}}
+{% endif %}
 
 INTERVIEW:
 {{TRANSCRIPT}}

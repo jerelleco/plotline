@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from plotline.export.timecode import seconds_to_timecode
-from plotline.project import read_json
+from plotline.io import read_json
 from plotline.reports.generator import ReportGenerator
 from plotline.utils import format_duration, get_delivery_class, THEME_COLORS, get_theme_color
 
@@ -111,22 +111,31 @@ def generate_themes_report(
 
     if use_synthesis:
         synthesis = read_json(synthesis_path)
-        for i, utheme in enumerate(synthesis.get("unified_themes", [])):
+        unified_themes = synthesis.get("unified_themes", [])
+
+        # Pre-compute max source_count to normalise strength across themes
+        source_counts = [len(u.get("source_themes", [])) for u in unified_themes]
+        max_source_count = max(source_counts, default=1) or 1
+
+        for i, utheme in enumerate(unified_themes):
             name = utheme.get("name", f"Theme {i + 1}")
             seg_ids = utheme.get("all_segment_ids", [])
             color = get_theme_color(i)
+            # Strength: normalise source-theme count; floor at 0.3 so no bar looks empty
+            raw_strength = source_counts[i] / max_source_count
+            strength = max(0.3, round(raw_strength, 2))
 
             themes_list.append(
                 {
                     "id": utheme.get("unified_theme_id", f"utheme_{i + 1:03d}"),
                     "name": name,
                     "description": utheme.get("description", ""),
-                    "strength": 0.8,  # Synthesis doesn't have per-theme strength
+                    "strength": strength,
                     "emotional_character": utheme.get("perspectives", ""),
                     "segment_count": len(seg_ids),
                     "segment_ids": seg_ids,
                     "color": color,
-                    "source_count": len(utheme.get("source_themes", [])),
+                    "source_count": source_counts[i],
                 }
             )
             all_theme_segment_ids[name] = seg_ids
@@ -216,10 +225,15 @@ def generate_themes_report(
         for iid in interview_ids
     ]
 
+    # Build a keyed dict for O(1) lookup in the template, replacing the O(n²)
+    # `selectattr` scan that was previously done per-segment inside per-theme loops.
+    segment_lookup_by_id = {seg["id"]: seg for seg in themed_segments}
+
     data = {
         "project_name": manifest.get("project_name", "Plotline Project"),
         "themes": themes_list,
         "segments": themed_segments,
+        "segment_lookup": segment_lookup_by_id,
         "intersections": intersections,
         "interviews": interviews,
         "total_themes": len(themes_list),
